@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DUELO DE SABERES — trivia multijugador a distancia</title>
+<meta name="description" content="Un duelo de trivia en vivo, hasta 4 jugadores, con audio en tiempo real, para gente que está lejos.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0b0e17; --bg-1:#111623; --bg-2:#171d2e; --card:#151b2b; --border:#262e45;
+    --text-0:#eef1fb; --text-1:#aab2ce; --text-2:#6b7392;
+    --accent-a:#7c5cff; --accent-b:#2fd4c9; --accent-grad:linear-gradient(90deg,#7c5cff,#2fd4c9);
+    --warn:#ffb84d; --good:#2fd4c9; --bad:#ff6b81; --radius:18px; --shadow:0 10px 40px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg-0); color:var(--text-0);
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;
+    display:flex; flex-direction:column; align-items:center; padding:28px 16px 60px;
+    position:relative; overflow-x:hidden;
+  }
+  body::before{
+    content:""; position:fixed; inset:-15%;
+    background:
+      radial-gradient(700px 700px at 20% 10%, rgba(124,92,255,.22), transparent 60%),
+      radial-gradient(800px 800px at 80% 90%, rgba(47,212,201,.18), transparent 60%);
+    z-index:-1; animation: driftBg 22s ease-in-out infinite alternate; pointer-events:none;
+  }
+  @keyframes driftBg{ 0%{transform:translate(0,0) scale(1);} 100%{transform:translate(-4%,4%) scale(1.1);} }
+  h1,h2,h3{font-family:'Space Grotesk',system-ui,sans-serif; margin:0;}
+  .wrap{width:100%; max-width:640px;}
+  .brand{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:6px;}
+  .brand .dot{
+    width:10px; height:10px; border-radius:50%; background:var(--accent-grad);
+    box-shadow:0 0 14px rgba(124,92,255,.7); animation: dotGlow 2.4s ease-in-out infinite;
+  }
+  @keyframes dotGlow{ 0%,100%{box-shadow:0 0 8px rgba(124,92,255,.6);} 50%{box-shadow:0 0 20px rgba(47,212,201,.9);} }
+  .brand h1{font-size:1.4rem; letter-spacing:.04em;}
+  .tagline{text-align:center; color:var(--text-1); font-size:.92rem; margin-bottom:28px;}
+  .card{
+    background:linear-gradient(180deg, var(--card), var(--bg-1)); border:1px solid var(--border);
+    border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); margin-bottom:18px;
+  }
+  .card.enter{ animation: cardIn .45s cubic-bezier(.16,.8,.3,1); }
+  @keyframes cardIn{ from{opacity:0; transform:translateY(14px) scale(.99);} to{opacity:1; transform:translateY(0) scale(1);} }
+  label{ display:block; font-size:.78rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-2); margin-bottom:8px; font-weight:600; }
+  input[type="text"]{
+    width:100%; padding:14px 16px; border-radius:12px; border:1px solid var(--border);
+    background:var(--bg-2); color:var(--text-0); font-size:1.05rem; font-family:'Space Grotesk',sans-serif;
+    outline:none; transition:border-color .15s;
+  }
+  input[type="text"]:focus{border-color:var(--accent-a);}
+  #roomCode{letter-spacing:.06em; text-transform:uppercase;}
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 20px;
+    border-radius:12px; border:none; cursor:pointer; font-family:'Space Grotesk',sans-serif; font-weight:600;
+    font-size:1rem; background:var(--accent-grad); color:#0b0e17; width:100%; margin-top:16px;
+    transition:transform .12s ease, opacity .12s ease, box-shadow .15s ease;
+  }
+  .btn:hover:not(:disabled){ transform:translateY(-1px); box-shadow:0 6px 18px rgba(124,92,255,.35); }
+  .btn:active:not(:disabled){transform:scale(.98);}
+  .btn.secondary{ background:var(--bg-2); color:var(--text-0); border:1px solid var(--border); }
+  .btn.ghost{ background:transparent; color:var(--text-1); border:1px dashed var(--border); }
+  .btn:disabled{opacity:.4; cursor:not-allowed; transform:none;}
+  details{margin-top:6px;}
+  summary{cursor:pointer; color:var(--accent-b); font-size:.9rem; font-weight:600; list-style:none;}
+  summary::-webkit-details-marker{display:none;}
+  .steps{margin:14px 0 0; padding:0; list-style:none; counter-reset:step;}
+  .steps li{ counter-increment:step; padding:10px 0 10px 34px; position:relative; color:var(--text-1); font-size:.9rem; border-top:1px solid var(--border); }
+  .steps li:first-child{border-top:none;}
+  .steps li::before{
+    content:counter(step); position:absolute; left:0; top:9px; width:22px; height:22px; border-radius:50%;
+    background:var(--bg-2); border:1px solid var(--border); color:var(--accent-b); font-size:.72rem;
+    display:flex; align-items:center; justify-content:center; font-weight:700;
+  }
+  .cat-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;}
+  .cat-check{
+    display:flex; align-items:center; gap:8px; background:var(--bg-2); border:1px solid var(--border);
+    border-radius:10px; padding:10px 12px; font-size:.85rem; color:var(--text-1); cursor:pointer; transition:.15s;
+  }
+  .cat-check.checked{color:var(--text-0); border-color:var(--accent-a);}
+  .cat-check input{accent-color:var(--accent-a); width:16px; height:16px; margin:0;}
+
+  .hud{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px; }
+  .hud .room{ font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:.08em; color:var(--text-1); font-size:.85rem; }
+  .hud .room span{color:var(--accent-b);}
+  .stat-pills{display:flex; gap:8px; flex-wrap:wrap;}
+  .pill{
+    background:var(--bg-2); border:1px solid var(--border); border-radius:999px; padding:6px 12px;
+    font-size:.78rem; color:var(--text-1); display:flex; align-items:center; gap:6px; transition:.2s;
+  }
+  .pill b{color:var(--text-0); font-family:'Space Grotesk',sans-serif;}
+  .pill.streak{color:var(--warn); border-color:rgba(255,184,77,.35);}
+  .pill.streak.active{animation: firePulse 1.1s ease-in-out infinite;}
+  .pill.timer.urgent{color:var(--bad); border-color:rgba(255,107,129,.45); animation: firePulse .6s ease-in-out infinite;}
+  @keyframes firePulse{ 0%,100%{text-shadow:0 0 0 transparent;} 50%{text-shadow:0 0 10px rgba(255,184,77,.85);} }
+
+  .presence-row{margin-bottom:10px; display:flex; gap:8px; flex-wrap:wrap;}
+  .online-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; background:#5b6584; transition:background .3s; }
+  .online-dot.on{ background:var(--good); box-shadow:0 0 8px rgba(47,212,201,.9); animation: dotPulse 1.6s ease-in-out infinite; }
+  @keyframes dotPulse{ 0%,100%{box-shadow:0 0 4px rgba(47,212,201,.6);} 50%{box-shadow:0 0 14px rgba(47,212,201,1);} }
+
+  .roster{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .roster-item{
+    display:flex; align-items:center; gap:8px; background:var(--bg-2); border:1px solid var(--border);
+    border-radius:12px; padding:8px 14px; font-size:.85rem; color:var(--text-1); transition:.2s;
+  }
+  .roster-item .rname{font-family:'Space Grotesk',sans-serif; font-weight:600; color:var(--text-0);}
+  .roster-item .rscore{color:var(--accent-b); font-family:'Space Grotesk',sans-serif; font-weight:700;}
+  .roster-item.me{border-color:var(--accent-a);}
+  .roster-item.turn{border-color:var(--good); box-shadow:0 0 12px rgba(47,212,201,.35); animation: dotPulse 1.6s ease-in-out infinite;}
+  .roster-item .rhost{font-size:.7rem; color:var(--warn);}
+
+  .turn-banner{
+    text-align:center; padding:10px; border-radius:12px; margin-bottom:16px; font-weight:700;
+    font-family:'Space Grotesk',sans-serif; font-size:.95rem; background:var(--bg-2); border:1px solid var(--border); color:var(--text-1);
+  }
+  .turn-banner.mine{ background:rgba(47,212,201,.15); border-color:var(--good); color:var(--good); animation: pulseSelect .5s ease; }
+  .turn-banner.steal{ background:rgba(255,184,77,.15); border-color:var(--warn); color:var(--warn); }
+
+  .category{color:var(--text-2); font-size:.78rem; text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px; font-weight:600;}
+  .prompt-title{font-size:.85rem; color:var(--text-2); margin-bottom:10px; text-transform:uppercase; letter-spacing:.08em; font-weight:600;}
+  .question-text{font-size:1.2rem; margin-bottom:20px; color:var(--text-0); line-height:1.45; font-family:'Space Grotesk',sans-serif;}
+
+  .options{display:flex; flex-direction:column; gap:10px; margin-bottom:16px;}
+  .option-btn{
+    padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:var(--bg-2); color:var(--text-0);
+    text-align:left; cursor:pointer; font-size:.95rem; font-family:'Inter',sans-serif; transition:.15s;
+  }
+  .option-btn:hover:not(:disabled){border-color:var(--accent-a); transform:translateX(2px);}
+  .option-btn.selected{border-color:var(--accent-a); background:rgba(124,92,255,.15); animation:pulseSelect .3s ease;}
+  @keyframes pulseSelect{ 0%{transform:scale(1);} 50%{transform:scale(1.015);} 100%{transform:scale(1);} }
+  .option-btn.correct{border-color:var(--good); background:rgba(47,212,201,.18); color:#eafffb;}
+  .option-btn.incorrect{border-color:var(--bad); background:rgba(255,107,129,.18); color:#ffecef;}
+  .option-btn:disabled{cursor:default; opacity:.7;}
+  .options.locked .option-btn:not(.correct):not(.incorrect){opacity:.45;}
+
+  .word-input-wrap{margin-bottom:6px;}
+  .word-hint{color:var(--text-2); font-size:.78rem; margin-top:8px;}
+
+  .duel-note{
+    text-align:center; font-size:.85rem; font-weight:600; color:var(--accent-b); margin-bottom:10px;
+    text-transform:uppercase; letter-spacing:.04em;
+  }
+  .reveal{
+    text-align:center; padding:18px 10px; border-radius:14px; margin:16px 0; background:var(--bg-2);
+    border:1px solid var(--border); animation: popIn .35s ease;
+  }
+  @keyframes popIn{ 0%{transform:scale(.88); opacity:0;} 100%{transform:scale(1); opacity:1;} }
+  @keyframes shake{
+    10%,90%{transform:translateX(-2px);} 20%,80%{transform:translateX(4px);}
+    30%,50%,70%{transform:translateX(-8px);} 40%,60%{transform:translateX(8px);}
+  }
+  .reveal.bad{ animation: shake .5s ease, popIn .35s ease; }
+  .reveal .tier{ font-family:'Space Grotesk',sans-serif; font-size:1.25rem; font-weight:700; margin-bottom:4px; }
+  .reveal.ok .tier{color:var(--good);}
+  .reveal.bad .tier{color:var(--bad);}
+  .reveal .detail{color:var(--text-1); font-size:.88rem;}
+  .reveal .score-change{color:var(--text-2); font-size:.8rem; margin-top:6px;}
+
+  .fact-card{
+    background:linear-gradient(180deg, rgba(124,92,255,.08), rgba(47,212,201,.05)); border:1px solid rgba(124,92,255,.25);
+    border-radius:14px; padding:16px 18px; margin:18px 0;
+  }
+  .fact-card .fact-label{
+    font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; color:var(--accent-b); font-weight:700;
+    margin-bottom:6px; display:flex; align-items:center; gap:6px;
+  }
+  .fact-card p{margin:0; color:var(--text-1); font-size:.9rem; line-height:1.55;}
+  .next-hint{text-align:center; color:var(--text-2); font-size:.78rem; margin-top:10px;}
+
+  .round-transition{ text-align:center; padding:30px 10px; }
+  .round-transition .rt-label{ color:var(--text-2); font-size:.78rem; text-transform:uppercase; letter-spacing:.12em; font-weight:700; margin-bottom:10px; }
+  .round-transition h2{
+    font-size:1.9rem; margin-bottom:16px; display:inline-block; background:var(--accent-grad);
+    -webkit-background-clip:text; background-clip:text; color:transparent; animation: transitionPop .6s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes transitionPop{ 0%{transform:scale(.5) rotate(-6deg); opacity:0;} 60%{transform:scale(1.15) rotate(2deg); opacity:1;} 100%{transform:scale(1) rotate(0);} }
+  .round-transition .rt-stats{ color:var(--text-1); font-size:.95rem; margin-bottom:6px; }
+  .round-transition .rt-next{ color:var(--text-2); font-size:.85rem; margin-bottom:10px; }
+
+  footer{ margin-top:24px; text-align:center; color:var(--text-2); font-size:.78rem; line-height:1.6; }
+  .util-row{display:flex; gap:10px; flex-wrap:wrap;}
+  .util-row .btn{margin-top:0; flex:1; min-width:150px;}
+
+  .badge-inline{
+    display:inline-flex; align-items:center; gap:6px; background:var(--bg-2); border:1px solid var(--border);
+    border-radius:999px; padding:8px 14px; font-size:.82rem; color:var(--text-1); margin-bottom:16px;
+  }
+  .badge-inline.pop{ animation: badgePop .5s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes badgePop{ 0%{transform:scale(.4) rotate(-8deg); opacity:0;} 60%{transform:scale(1.12) rotate(3deg); opacity:1;} 100%{transform:scale(1) rotate(0);} }
+
+  .confetti-piece{ position:fixed; top:-12px; width:8px; height:14px; z-index:999; pointer-events:none; animation: confettiFall 2.4s linear forwards; }
+  @keyframes confettiFall{ to{ transform:translateY(110vh) rotate(640deg); opacity:.15; } }
+
+  @media (max-width:480px){
+    .card{padding:18px;} .brand h1{font-size:1.15rem;} .cat-grid{grid-template-columns:1fr;} .util-row .btn{min-width:100%;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="brand"><span class="dot"></span><h1>DUELO DE SABERES</h1></div>
+  <p class="tagline">Trivia multijugador (hasta 4) con audio en vivo, para gente que está lejos.</p>
+
+  <!-- ============ HOME VIEW ============ -->
+  <div id="view-home">
+    <div class="card">
+      <label for="playerName">Tu nombre</label>
+      <input type="text" id="playerName" maxlength="18" placeholder="EJ: Brey">
+
+      <div style="margin-top:16px;">
+        <label for="roomCode">Código de sala (el mismo para todos)</label>
+        <input type="text" id="roomCode" maxlength="16" placeholder="EJ: LUCIERNAGA">
+      </div>
+      <div class="util-row" style="margin-top:10px;">
+        <button class="btn ghost" id="btnRandomCode" type="button" style="margin-top:0;">Generar código nuevo</button>
+      </div>
+
+      <div style="margin-top:20px;">
+        <label>Categorías (elijan las mismas todos)</label>
+        <div class="cat-grid" id="catGrid"></div>
+      </div>
+
+      <button class="btn" id="btnEnter" type="button" disabled>Entrar a la sala</button>
+
+      <details style="margin-top:20px;">
+        <summary>¿Cómo se juega?</summary>
+        <ol class="steps">
+          <li>Escribe tu nombre y entra con el <b>mismo código de sala</b> y las <b>mismas categorías</b> que las otras 1 a 3 personas.</li>
+          <li>Cada pregunta tiene un <b>cronómetro de 30 segundos</b>. Le toca a un jugador responder; si acierta, gana el punto. Si falla, pasa al siguiente jugador conectado, que tiene <b>10 segundos</b> para intentarlo — quien ya falló espera a la siguiente pregunta.</li>
+          <li>Si nadie acierta o se acaba el tiempo, se revela la respuesta correcta y el dato curioso queda visible varios segundos antes de pasar solos a la siguiente pregunta.</li>
+          <li>Las preguntas salen en orden aleatorio y no se repiten hasta agotar el banco de la categoría elegida.</li>
+          <li>Cada 20 preguntas hay una pantalla especial de cierre de ronda con el resumen.</li>
+          <li>Cualquiera puede activar el audio en vivo para hablar con todos los conectados.</li>
+        </ol>
+        <p style="color:var(--text-2); font-size:.82rem; margin-top:12px;">
+          La primera persona en entrar a una sala se vuelve el "anfitrión": administra las preguntas y el cronómetro para todos. Si el anfitrión se desconecta, la partida se detiene y hay que volver a entrar.
+        </p>
+      </details>
+    </div>
+  </div>
+
+  <!-- ============ GAME VIEW ============ -->
+  <div id="view-game" style="display:none;">
+    <div class="hud">
+      <div class="room">SALA <span id="hudRoom">—</span></div>
+      <div class="stat-pills">
+        <div class="pill">Ronda <b id="hudRound">1</b></div>
+        <div class="pill">Pregunta <b id="hudPos">1</b>/20</div>
+        <div class="pill timer" id="hudTimerPill">⏱️ <b id="hudTimer">30</b>s</div>
+        <div class="pill streak" id="hudStreakPill" style="display:none;">🔥 <b id="hudStreak">0</b></div>
+      </div>
+    </div>
+
+    <div class="presence-row">
+      <div class="pill">
+        <span class="online-dot" id="onlineDot"></span>
+        <span id="onlineLabel">Conectando…</span>
+      </div>
+    </div>
+
+    <div class="roster" id="rosterRow"></div>
+
+    <div class="badge-inline" id="badgeInline" style="display:none;"></div>
+
+    <div class="card" id="roundCard"><!-- filled by JS --></div>
+
+    <div class="util-row">
+      <button class="btn secondary" id="btnAudioToggle" type="button">🎙️ Activar audio en vivo</button>
+      <button class="btn ghost" id="btnHangup" type="button" style="display:none;">📴 Colgar</button>
+    </div>
+    <button class="btn ghost" id="btnPlayAudioFallback" type="button" style="display:none;">🔊 Toca para activar el sonido</button>
+    <div class="util-row">
+      <button class="btn secondary" id="btnShare" type="button">🔗 Compartir sala</button>
+      <button class="btn secondary" id="btnRoundAdjust" type="button" style="display:none;">⚙️ Forzar siguiente (anfitrión)</button>
+    </div>
+    <button class="btn ghost" id="btnLeave" type="button">Salir de la sala / reiniciar</button>
+  </div>
+
+  <footer>
+    Sin cuentas propias, sin base de datos — todo el juego corre en el navegador.<br>
+    El audio, la presencia y el estado de la partida usan conexiones directas entre navegadores (WebRTC), señalizadas por un servicio público gratuito.
+  </footer>
+</div>
+
+<script src="https://unpkg.com/peerjs@1/dist/peerjs.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  const TIMER_MAIN = 30;
+  const TIMER_STEAL = 10;
+  const QUESTIONS_PER_ROUND = 20;
+  const ROUND_TRANSITION_DELAY_MS = 4000;
+  const FACT_DISPLAY_MS = 8000;
+  const MAX_PLAYERS = 4;
+
+  function hashCode(str){
+    let h = 2166136261;
+    for(let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function shuffleRandom(arr){
+    const a = arr.slice();
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function normalize(s){
+    return (s || "").toString().toLowerCase().normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").trim();
+  }
+
+  /* ---------- content ---------- */
+  const CATEGORY_DEFS = [
+    {code:"HIS", name:"Historia"},
+    {code:"CIE", name:"Ciencia"},
+    {code:"GEO", name:"Geografía"},
+    {code:"ART", name:"Arte y Literatura"},
+    {code:"POP", name:"Cultura Pop"},
+    {code:"DEP", name:"Deportes"},
+    {code:"NAT", name:"Naturaleza"},
+    {code:"TEC", name:"Tecnología"},
+    {code:"ACT", name:"Actualidad"}
+  ];
+
+  const TRIVIA = [
+    {cat:"HIS", type:"mcq", q:"¿En qué año llegó el ser humano a la Luna por primera vez?", opts:["1965","1969","1971","1959"], correct:1,
+      fact:"La misión Apolo 11 alunizó el 20 de julio de 1969. Neil Armstrong fue el primero en pisar la superficie lunar."},
+    {cat:"HIS", type:"mcq", q:"¿Quién pintó el techo de la Capilla Sixtina?", opts:["Leonardo da Vinci","Rafael","Miguel Ángel","Donatello"], correct:2,
+      fact:"Miguel Ángel pintó el fresco entre 1508 y 1512, tumbado sobre un andamio, por encargo del papa Julio II."},
+    {cat:"HIS", type:"mcq", q:"¿En qué año cayó el Muro de Berlín?", opts:["1985","1989","1991","1993"], correct:1,
+      fact:"El muro cayó el 9 de noviembre de 1989, marcando el fin simbólico de la Guerra Fría en Europa."},
+    {cat:"HIS", type:"mcq", q:"¿Qué civilización construyó Machu Picchu?", opts:["Azteca","Maya","Inca","Olmeca"], correct:2,
+      fact:"Machu Picchu fue construido en el siglo XV como probable residencia real del inca Pachacútec, en los Andes peruanos."},
+    {cat:"HIS", type:"mcq", q:"¿Quién fue la primera persona en ganar dos Premios Nobel en ciencias distintas?", opts:["Marie Curie","Rosalind Franklin","Ada Lovelace","Niels Bohr"], correct:0,
+      fact:"Marie Curie ganó el Nobel de Física en 1903 y el de Química en 1911, algo que nadie más ha logrado en dos campos científicos distintos."},
+    {cat:"HIS", type:"mcq", q:"¿En qué región surgió una de las primeras escrituras conocidas?", opts:["Egipto","Mesopotamia","China","Mesoamérica"], correct:1,
+      fact:"La escritura cuneiforme sumeria, en Mesopotamia, se remonta a alrededor del año 3200 a.C."},
+    {cat:"HIS", type:"mcq", q:"¿Quién fue el primer emperador de Roma?", opts:["Julio César","Augusto","Nerón","Trajano"], correct:1,
+      fact:"Augusto (antes llamado Octavio) se convirtió en el primer emperador en el año 27 a.C., tras el fin de la República romana."},
+    {cat:"HIS", type:"mcq", q:"¿En qué año comenzó la Primera Guerra Mundial?", opts:["1914","1916","1918","1912"], correct:0,
+      fact:"La guerra estalló tras el asesinato del archiduque Francisco Fernando de Austria en Sarajevo, en junio de 1914."},
+    {cat:"HIS", type:"mcq", q:"¿En qué año terminó la Segunda Guerra Mundial?", opts:["1943","1945","1947","1941"], correct:1,
+      fact:"La guerra terminó en 1945, tras la rendición de Alemania en mayo y la de Japón en septiembre de ese año."},
+    {cat:"HIS", type:"mcq", q:"¿En qué año comenzó la Revolución Francesa?", opts:["1789","1799","1776","1804"], correct:0,
+      fact:"La toma de la Bastilla, el 14 de julio de 1789, es uno de los hitos simbólicos del inicio de la Revolución."},
+    {cat:"HIS", type:"word", q:"¿Cómo se llamó la reina de Egipto famosa por su relación con Julio César y Marco Antonio?", answer:"cleopatra",
+      fact:"Cleopatra VII fue la última gobernante activa del Reino Ptolemaico de Egipto antes de que este pasara a manos romanas."},
+    {cat:"HIS", type:"mcq", q:"¿En qué año se independizó Estados Unidos?", opts:["1776","1783","1789","1800"], correct:0,
+      fact:"La Declaración de Independencia se firmó el 4 de julio de 1776, aunque la guerra continuó varios años más."},
+    {cat:"HIS", type:"word", q:"¿Cómo se llamó el barco británico que se hundió en su viaje inaugural en 1912?", answer:"titanic",
+      fact:"El Titanic se hundió tras chocar con un iceberg en el Atlántico Norte, causando la muerte de más de 1.500 personas."},
+    {cat:"HIS", type:"mcq", q:"¿Quién lideró el movimiento de independencia de la India mediante la resistencia no violenta?", opts:["Jawaharlal Nehru","Mahatma Gandhi","Winston Churchill","Nelson Mandela"], correct:1,
+      fact:"Gandhi promovió la desobediencia civil pacífica, incluida la Marcha de la Sal de 1930, como estrategia contra el dominio británico."},
+    {cat:"HIS", type:"mcq", q:"¿En qué año llegó Cristóbal Colón a América?", opts:["1492","1500","1488","1510"], correct:0,
+      fact:"Colón llegó a una isla del Caribe el 12 de octubre de 1492, en un viaje financiado por la corona de Castilla."},
+    {cat:"HIS", type:"mcq", q:"¿Qué antigua civilización construyó las pirámides de Giza?", opts:["Griega","Egipcia","Romana","Mesopotámica"], correct:1,
+      fact:"La Gran Pirámide de Giza se construyó hace más de 4.500 años como tumba para el faraón Keops."},
+    {cat:"HIS", type:"mcq", q:"¿Quién lideró la primera expedición cuya tripulación completó la vuelta al mundo, aunque él murió en el camino?", opts:["Cristóbal Colón","Fernando de Magallanes","Vasco da Gama","Marco Polo"], correct:1,
+      fact:"Magallanes murió en Filipinas en 1521; fue Juan Sebastián Elcano quien completó la vuelta al mundo con los sobrevivientes en 1522."},
+    {cat:"HIS", type:"mcq", q:"¿En qué año cayó el Imperio Romano de Occidente?", opts:["476","410","500","330"], correct:0,
+      fact:"Se considera que el Imperio Romano de Occidente cayó en el año 476, cuando fue depuesto el último emperador, Rómulo Augústulo."},
+    {cat:"HIS", type:"word", q:"¿Cómo se llamó el movimiento cultural y artístico que floreció en Europa entre los siglos XIV y XVII, tras la Edad Media?", answer:"renacimiento",
+      fact:"El Renacimiento se caracterizó por un renovado interés en el arte, la ciencia y el pensamiento de la antigüedad clásica."},
+
+    {cat:"CIE", type:"mcq", q:"¿Cuál es el elemento más abundante en el universo?", opts:["Helio","Hidrógeno","Oxígeno","Carbono"], correct:1,
+      fact:"El hidrógeno representa cerca del 75% de la masa elemental del universo observable."},
+    {cat:"CIE", type:"mcq", q:"¿Cuántos huesos tiene el esqueleto de un adulto humano?", opts:["186","206","226","246"], correct:1,
+      fact:"Nacemos con alrededor de 270 huesos, pero muchos se fusionan durante el crecimiento hasta quedar en 206."},
+    {cat:"CIE", type:"mcq", q:"¿Qué planeta es conocido como el planeta rojo?", opts:["Venus","Marte","Júpiter","Mercurio"], correct:1,
+      fact:"El tono rojizo de Marte se debe al óxido de hierro (herrumbre) en su superficie."},
+    {cat:"CIE", type:"mcq", q:"¿Quién formuló la teoría de la relatividad?", opts:["Isaac Newton","Albert Einstein","Niels Bohr","Galileo Galilei"], correct:1,
+      fact:"Einstein publicó la relatividad especial en 1905 y la relatividad general en 1915."},
+    {cat:"CIE", type:"mcq", q:"¿A qué velocidad aproximada viaja la luz en el vacío?", opts:["150.000 km/s","300.000 km/s","500.000 km/s","1.000.000 km/s"], correct:1,
+      fact:"La luz viaja a unos 299.792 km/s en el vacío, el límite de velocidad del universo según la física conocida."},
+    {cat:"CIE", type:"mcq", q:"¿Qué gas absorben las plantas para hacer fotosíntesis?", opts:["Oxígeno","Nitrógeno","Dióxido de carbono","Hidrógeno"], correct:2,
+      fact:"Las plantas usan CO2, agua y luz solar para producir glucosa y liberar oxígeno como subproducto."},
+    {cat:"CIE", type:"word", q:"¿Cómo se llama el miedo irracional a los espacios cerrados?", answer:"claustrofobia",
+      fact:"Es una fobia específica muy común; su opuesto conceptual es la agorafobia, el miedo a los espacios abiertos o a no poder escapar de ellos."},
+    {cat:"CIE", type:"word", q:"¿Cómo se llama la ciencia que estudia los astros y el universo?", answer:"astronomia",
+      fact:"Es una de las ciencias más antiguas: civilizaciones como la babilónica ya registraban posiciones de estrellas hace más de 3.000 años."},
+    {cat:"CIE", type:"word", q:"¿Cómo se llama el miedo a las alturas?", answer:"acrofobia",
+      fact:"Se diferencia del vértigo, que es una sensación de mareo o pérdida de equilibrio y no necesariamente un miedo."},
+    {cat:"CIE", type:"word", q:"¿Cómo se llama el paso de agua líquida a vapor por efecto del calor?", answer:"evaporacion",
+      fact:"Es parte central del ciclo del agua: el sol evapora agua de océanos y lagos, que luego se condensa en nubes y cae como lluvia."},
+    {cat:"CIE", type:"word", q:"¿Cómo se llama el médico especializado en el corazón?", answer:"cardiologo", accepts:["cardiologa"],
+      fact:"La cardiología estudia el corazón y el sistema circulatorio; las enfermedades cardiovasculares son una de las principales causas de muerte en el mundo."},
+    {cat:"CIE", type:"mcq", q:"¿Cuál es el hueso más largo del cuerpo humano?", opts:["Húmero","Fémur","Tibia","Radio"], correct:1,
+      fact:"El fémur, en el muslo, puede soportar cargas enormes y es también uno de los huesos más fuertes del cuerpo."},
+    {cat:"CIE", type:"mcq", q:"¿Cuál es el órgano más grande del cuerpo humano?", opts:["El hígado","La piel","El pulmón","El intestino"], correct:1,
+      fact:"La piel actúa como barrera protectora, regula la temperatura corporal y puede llegar a pesar varios kilos en un adulto."},
+    {cat:"CIE", type:"mcq", q:"¿Cuántos planetas tiene el sistema solar desde que Plutón dejó de considerarse planeta?", opts:["7","8","9","10"], correct:1,
+      fact:"En 2006 la Unión Astronómica Internacional reclasificó a Plutón como \"planeta enano\", dejando ocho planetas oficiales."},
+    {cat:"CIE", type:"mcq", q:"¿Qué gas es el más abundante en la atmósfera terrestre?", opts:["Oxígeno","Nitrógeno","Dióxido de carbono","Argón"], correct:1,
+      fact:"El nitrógeno compone cerca del 78% del aire que respiramos, aunque el oxígeno es el que más necesitamos para vivir."},
+    {cat:"CIE", type:"word", q:"¿Cómo se llama la unidad básica de la herencia genética?", answer:"gen",
+      fact:"Los genes están hechos de ADN y contienen las instrucciones para producir las proteínas que forman y regulan el cuerpo."},
+    {cat:"CIE", type:"mcq", q:"¿Qué científico propuso la teoría de la evolución por selección natural?", opts:["Gregor Mendel","Charles Darwin","Louis Pasteur","Alfred Wegener"], correct:1,
+      fact:"Darwin publicó \"El origen de las especies\" en 1859, tras años de observaciones durante su viaje en el Beagle."},
+    {cat:"CIE", type:"word", q:"¿Qué metal es líquido a temperatura ambiente y se usaba en termómetros antiguos?", answer:"mercurio",
+      fact:"El mercurio es tóxico, por lo que hoy se ha reemplazado en la mayoría de los termómetros por alcohol coloreado o sensores digitales."},
+    {cat:"CIE", type:"mcq", q:"¿Cuántos pares de cromosomas tiene una célula humana normal?", opts:["21","22","23","24"], correct:2,
+      fact:"Son 23 pares (46 cromosomas en total): 22 pares \"comunes\" y un par de cromosomas sexuales."},
+    {cat:"CIE", type:"mcq", q:"¿Qué parte de la célula contiene la información genética?", opts:["La mitocondria","El núcleo","El ribosoma","La membrana"], correct:1,
+      fact:"El núcleo actúa como el \"centro de control\" de la célula, protegiendo y organizando el ADN."},
+    {cat:"CIE", type:"word", q:"¿Cómo se llama el proceso mediante el cual el cuerpo convierte el alimento en energía?", answer:"metabolismo",
+      fact:"El metabolismo incluye reacciones que liberan energía (catabolismo) y otras que la usan para construir tejidos (anabolismo)."},
+    {cat:"CIE", type:"mcq", q:"¿Cuál es el planeta más grande del sistema solar?", opts:["Saturno","Júpiter","Urano","Neptuno"], correct:1,
+      fact:"Júpiter es tan grande que podrían caber más de 1.300 planetas del tamaño de la Tierra en su interior."},
+    {cat:"CIE", type:"mcq", q:"¿Quién desarrolló la primera vacuna, contra la viruela, en 1796?", opts:["Louis Pasteur","Edward Jenner","Alexander Fleming","Robert Koch"], correct:1,
+      fact:"Jenner observó que las ordeñadoras expuestas a la viruela bovina no contraían la viruela humana, y usó esa idea para crear la vacuna."},
+    {cat:"CIE", type:"mcq", q:"¿Qué científico descubrió la penicilina?", opts:["Louis Pasteur","Alexander Fleming","Robert Koch","Joseph Lister"], correct:1,
+      fact:"Fleming descubrió en 1928 que un moho (Penicillium) mataba bacterias, dando origen a los antibióticos modernos."},
+
+    {cat:"GEO", type:"mcq", q:"¿Cuál es la capital de Australia?", opts:["Sídney","Melbourne","Canberra","Perth"], correct:2,
+      fact:"Canberra fue diseñada y fundada en 1913 específicamente para ser la capital, como solución de compromiso entre Sídney y Melbourne."},
+    {cat:"GEO", type:"mcq", q:"¿Cuál es la montaña más alta del mundo sobre el nivel del mar?", opts:["K2","Monte Everest","Kilimanjaro","Aconcagua"], correct:1,
+      fact:"El Everest mide 8.849 metros y se sigue elevando unos milímetros al año por el choque de placas tectónicas."},
+    {cat:"GEO", type:"mcq", q:"¿Cuál es el desierto cálido más extenso del mundo?", opts:["Gobi","Sahara","Kalahari","Atacama"], correct:1,
+      fact:"El Sahara cubre cerca de 9,2 millones de km², un área comparable a la de Estados Unidos o China."},
+    {cat:"GEO", type:"mcq", q:"¿Qué país tiene más husos horarios en su territorio?", opts:["Rusia","Estados Unidos","Francia","China"], correct:2,
+      fact:"Gracias a sus territorios de ultramar, Francia abarca 12 husos horarios distintos, más que cualquier otro país."},
+    {cat:"GEO", type:"mcq", q:"¿Cuál es el océano más grande del planeta?", opts:["Atlántico","Índico","Pacífico","Ártico"], correct:2,
+      fact:"El Pacífico cubre más superficie que todas las masas de tierra del planeta juntas."},
+    {cat:"GEO", type:"mcq", q:"¿Cuál es el país independiente más pequeño del mundo?", opts:["Mónaco","Ciudad del Vaticano","San Marino","Liechtenstein"], correct:1,
+      fact:"El Vaticano ocupa apenas 0,49 km², y su población ronda las pocas centenas de habitantes."},
+    {cat:"GEO", type:"word", q:"¿Cuál es la capital de Francia?", answer:"paris",
+      fact:"París es conocida como \"la Ciudad de la Luz\", en parte por ser pionera en iluminación pública a gran escala en el siglo XIX."},
+    {cat:"GEO", type:"word", q:"¿Cómo se llama el fenómeno óptico de bandas de colores que aparece en el cielo tras la lluvia?", answer:"arcoiris",
+      fact:"Se forma cuando la luz del sol se refracta y se refleja dentro de gotas de agua suspendidas en el aire, separándose en distintos colores."},
+    {cat:"GEO", type:"mcq", q:"¿Cuál es el país más grande del mundo por superficie?", opts:["Canadá","China","Rusia","Estados Unidos"], correct:2,
+      fact:"Rusia abarca 11 husos horarios y ocupa cerca del 11% de la superficie terrestre del planeta."},
+    {cat:"GEO", type:"mcq", q:"¿Cuál es el río más largo de América del Sur?", opts:["Amazonas","Orinoco","Paraná","Magdalena"], correct:0,
+      fact:"El Amazonas transporta más agua que los siguientes siete ríos más caudalosos del mundo juntos."},
+    {cat:"GEO", type:"word", q:"¿Cuál es la capital de Japón?", answer:"tokio", accepts:["tokyo"],
+      fact:"Tokio es, junto con su área metropolitana, una de las zonas urbanas más pobladas del planeta."},
+    {cat:"GEO", type:"mcq", q:"¿Cuál es la capital de Canadá?", opts:["Toronto","Vancouver","Ottawa","Montreal"], correct:2,
+      fact:"Aunque Toronto es la ciudad más poblada, Ottawa es la capital desde que la reina Victoria la eligió en 1857."},
+    {cat:"GEO", type:"word", q:"¿Qué cordillera recorre gran parte de América del Sur de norte a sur?", answer:"andes",
+      fact:"Los Andes forman la cadena montañosa continental más larga del mundo, con más de 7.000 kilómetros de longitud."},
+    {cat:"GEO", type:"mcq", q:"¿Cuál es el lago de agua dulce más grande del mundo por superficie?", opts:["Titicaca","Baikal","Superior","Victoria"], correct:2,
+      fact:"El lago Superior, entre Canadá y Estados Unidos, tiene una superficie mayor que la de algunos países."},
+    {cat:"GEO", type:"mcq", q:"¿Cuál es el país con más hablantes nativos de español del mundo?", opts:["España","México","Argentina","Colombia"], correct:1,
+      fact:"México tiene más hablantes nativos de español que cualquier otro país, incluida España."},
+    {cat:"GEO", type:"word", q:"¿Qué estrecho separa Europa de África en su punto más angosto, cerca de España?", answer:"gibraltar",
+      fact:"El Estrecho de Gibraltar tiene apenas unos 14 kilómetros de ancho en su parte más angosta."},
+    {cat:"GEO", type:"word", q:"¿Cómo se llama la cordillera más alta del mundo, donde se encuentra el Everest?", answer:"himalaya",
+      fact:"El Himalaya se sigue elevando lentamente por el choque entre la placa india y la placa euroasiática."},
+    {cat:"GEO", type:"word", q:"¿Cómo se llama el archipiélago de Ecuador que inspiró la teoría de la evolución de Darwin?", answer:"galapagos",
+      fact:"Darwin visitó las islas Galápagos en 1835 y observó variaciones entre especies de una isla a otra, clave para su teoría."},
+
+    {cat:"ART", type:"mcq", q:"¿Quién escribió \"Don Quijote de la Mancha\"?", opts:["Lope de Vega","Miguel de Cervantes","Francisco de Quevedo","Garcilaso de la Vega"], correct:1,
+      fact:"Publicada en 1605, muchos la consideran la primera novela moderna de la literatura occidental."},
+    {cat:"ART", type:"mcq", q:"¿Quién pintó \"La noche estrellada\"?", opts:["Claude Monet","Vincent van Gogh","Salvador Dalí","Paul Cézanne"], correct:1,
+      fact:"Van Gogh la pintó en 1889 mientras estaba internado en un sanatorio en Saint-Rémy-de-Provence, Francia."},
+    {cat:"ART", type:"mcq", q:"¿Quién escribió \"Cien años de soledad\"?", opts:["Mario Vargas Llosa","Julio Cortázar","Gabriel García Márquez","Pablo Neruda"], correct:2,
+      fact:"García Márquez ganó el Premio Nobel de Literatura en 1982, en gran parte por esta novela fundadora del realismo mágico."},
+    {cat:"ART", type:"mcq", q:"¿En qué museo se exhibe permanentemente la Mona Lisa?", opts:["El Prado","El Louvre","El MoMA","Los Uffizi"], correct:1,
+      fact:"La Mona Lisa está en el Louvre, en París, desde que el propio Leonardo da Vinci la llevó a Francia en el siglo XVI."},
+    {cat:"ART", type:"mcq", q:"¿Quién escribió \"Romeo y Julieta\"?", opts:["Christopher Marlowe","William Shakespeare","Charles Dickens","Oscar Wilde"], correct:1,
+      fact:"Se estima que Shakespeare escribió esta tragedia hacia 1595, y sigue siendo una de las obras más representadas del teatro occidental."},
+    {cat:"ART", type:"mcq", q:"¿Qué escritor creó al detective Sherlock Holmes?", opts:["Agatha Christie","Arthur Conan Doyle","Edgar Allan Poe","Wilkie Collins"], correct:1,
+      fact:"Conan Doyle publicó la primera aventura de Holmes, \"Estudio en escarlata\", en 1887."},
+    {cat:"ART", type:"word", q:"¿Cómo se llama el instrumento de cuerda triangular usado en orquestas clásicas?", answer:"arpa",
+      fact:"El arpa es uno de los instrumentos musicales más antiguos que existen, con representaciones que datan de hace más de 4.000 años."},
+    {cat:"ART", type:"word", q:"¿Cómo se llama el lugar público donde se prestan y consultan libros?", answer:"biblioteca",
+      fact:"La Biblioteca de Alejandría, en el Egipto antiguo, es una de las más famosas de la historia por la enorme cantidad de conocimiento que reunió."},
+    {cat:"ART", type:"word", q:"¿Quién escribió \"La Odisea\" y \"La Ilíada\"?", answer:"homero",
+      fact:"Se atribuyen a Homero, un poeta griego cuya existencia histórica exacta sigue siendo debatida por los expertos."},
+    {cat:"ART", type:"mcq", q:"¿Quién pintó \"El grito\"?", opts:["Edvard Munch","Gustav Klimt","Egon Schiele","James Ensor"], correct:0,
+      fact:"El pintor noruego Edvard Munch creó varias versiones de esta obra a partir de 1893."},
+    {cat:"ART", type:"mcq", q:"¿Qué escritor ruso escribió \"Guerra y paz\"?", opts:["Fiódor Dostoievski","León Tolstói","Antón Chéjov","Nikolái Gógol"], correct:1,
+      fact:"Tolstói tardó varios años en escribir esta extensa novela ambientada durante las guerras napoleónicas."},
+    {cat:"ART", type:"mcq", q:"¿Quién pintó \"Los girasoles\"?", opts:["Paul Gauguin","Vincent van Gogh","Henri Matisse","Claude Monet"], correct:1,
+      fact:"Van Gogh pintó varias versiones de \"Los girasoles\" para decorar el cuarto de su amigo Paul Gauguin en Arlés, Francia."},
+    {cat:"ART", type:"word", q:"¿Cómo se llama el movimiento artístico liderado por Salvador Dalí y Joan Miró, inspirado en el mundo de los sueños?", answer:"surrealismo",
+      fact:"El surrealismo, surgido en los años 20, buscaba expresar el funcionamiento del pensamiento inconsciente."},
+    {cat:"ART", type:"mcq", q:"¿Quién compuso las óperas \"La flauta mágica\" y \"Las bodas de Fígaro\"?", opts:["Ludwig van Beethoven","Wolfgang Amadeus Mozart","Johann Sebastian Bach","Franz Schubert"], correct:1,
+      fact:"Mozart compuso música desde muy joven y dejó más de 600 obras a pesar de morir a los 35 años."},
+    {cat:"ART", type:"mcq", q:"¿Qué escritor argentino escribió \"Ficciones\" y \"El Aleph\"?", opts:["Jorge Luis Borges","Julio Cortázar","Ernesto Sabato","Adolfo Bioy Casares"], correct:0,
+      fact:"Borges es conocido por sus cuentos breves y filosóficos, llenos de laberintos, espejos y bibliotecas infinitas."},
+    {cat:"ART", type:"word", q:"¿Cómo se llama la técnica de pintura que usa puntos pequeños de color, popularizada por Georges Seurat?", answer:"puntillismo",
+      fact:"El puntillismo busca que el ojo del espectador \"mezcle\" ópticamente los colores al ver la obra desde cierta distancia."},
+    {cat:"ART", type:"mcq", q:"¿Quién escribió la novela \"1984\"?", opts:["Aldous Huxley","George Orwell","Ray Bradbury","H.G. Wells"], correct:1,
+      fact:"Publicada en 1949, la novela describe una sociedad de vigilancia extrema y acuñó términos como \"Gran Hermano\"."},
+    {cat:"ART", type:"mcq", q:"¿Qué poeta chileno ganó el Premio Nobel de Literatura en 1971?", opts:["Pablo Neruda","Gabriela Mistral","Nicanor Parra","Vicente Huidobro"], correct:0,
+      fact:"Neruda es autor de obras como \"Veinte poemas de amor y una canción desesperada\" y \"Canto general\"."},
+    {cat:"ART", type:"word", q:"¿Cómo se llama el templo inacabado diseñado por Antoni Gaudí en Barcelona?", answer:"sagrada familia",
+      fact:"La construcción de la Sagrada Familia comenzó en 1882 y, más de un siglo después, sigue sin terminarse por completo."},
+    {cat:"ART", type:"mcq", q:"¿Quién escribió \"Los miserables\"?", opts:["Victor Hugo","Alexandre Dumas","Émile Zola","Gustave Flaubert"], correct:0,
+      fact:"Victor Hugo publicó esta novela en 1862; en ella sigue la historia de Jean Valjean a lo largo de varias décadas en Francia."},
+
+    {cat:"POP", type:"mcq", q:"¿Quién compuso la \"Novena Sinfonía\"?", opts:["Mozart","Beethoven","Bach","Chopin"], correct:1,
+      fact:"Beethoven la compuso ya casi completamente sordo; su estreno en 1824 lo tuvo que anunciar un compañero porque no oyó los aplausos."},
+    {cat:"POP", type:"mcq", q:"¿Qué banda británica lanzó el álbum \"Abbey Road\"?", opts:["The Rolling Stones","The Beatles","Pink Floyd","Queen"], correct:1,
+      fact:"La icónica portada, con los cuatro cruzando la calle, se fotografió en apenas unos minutos frente a los estudios Abbey Road en Londres."},
+    {cat:"POP", type:"mcq", q:"¿En qué saga de películas aparece la frase \"Que la fuerza te acompañe\"?", opts:["Star Trek","Star Wars","Matrix","Dune"], correct:1,
+      fact:"La frase se popularizó desde la primera película de Star Wars, estrenada en 1977."},
+    {cat:"POP", type:"mcq", q:"¿Quién creó al personaje de Mickey Mouse?", opts:["Walt Disney","Stan Lee","Chuck Jones","Hanna-Barbera"], correct:0,
+      fact:"Mickey Mouse debutó en 1928 en el corto \"Steamboat Willie\", uno de los primeros dibujos animados con sonido sincronizado."},
+    {cat:"POP", type:"mcq", q:"¿Quién pintó el mural \"Guernica\"?", opts:["Salvador Dalí","Diego Rivera","Pablo Picasso","Joan Miró"], correct:2,
+      fact:"Picasso lo pintó en 1937 como respuesta al bombardeo de la ciudad vasca de Guernica durante la Guerra Civil española."},
+    {cat:"POP", type:"mcq", q:"¿Cuál fue el primer largometraje animado de Disney?", opts:["Pinocho","Blancanieves y los siete enanitos","Fantasía","Bambi"], correct:1,
+      fact:"Se estrenó en 1937 y fue una apuesta tan arriesgada que en su momento la llamaban \"la locura de Disney\"."},
+    {cat:"POP", type:"mcq", q:"¿Qué rey del rock and roll popularizó \"Hound Dog\" y \"Jailhouse Rock\"?", opts:["Chuck Berry","Elvis Presley","Little Richard","Buddy Holly"], correct:1,
+      fact:"Elvis Presley es apodado \"El Rey\" y fue una de las figuras clave en llevar el rock and roll a la cultura masiva de los años 50."},
+    {cat:"POP", type:"mcq", q:"¿Qué actor interpretó a Jack Dawson en \"Titanic\" (1997)?", opts:["Brad Pitt","Leonardo DiCaprio","Matt Damon","Johnny Depp"], correct:1,
+      fact:"Titanic ganó 11 premios Óscar, empatando el récord histórico de estatuillas para una sola película."},
+    {cat:"POP", type:"mcq", q:"¿En qué ciudad ficticia viven Los Simpson?", opts:["Quahog","Springfield","South Park","Bedrock"], correct:1,
+      fact:"El creador Matt Groening eligió \"Springfield\" a propósito porque es uno de los nombres de ciudad más comunes en Estados Unidos."},
+    {cat:"POP", type:"mcq", q:"¿Quién es la autora de la saga de novelas \"Harry Potter\"?", opts:["J.K. Rowling","Stephenie Meyer","Suzanne Collins","George R.R. Martin"], correct:0,
+      fact:"J.K. Rowling escribió el primer libro mientras atravesaba dificultades económicas; hoy la saga es una de las más vendidas de la historia."},
+    {cat:"POP", type:"mcq", q:"¿Qué personaje de Disney pierde un zapato de cristal a medianoche?", opts:["Blancanieves","Cenicienta","Aurora","Ariel"], correct:1,
+      fact:"La versión de Disney de 1950 se basó en el cuento europeo popularizado por Charles Perrault en el siglo XVII."},
+    {cat:"POP", type:"mcq", q:"¿Qué actor interpreta a Iron Man en el universo cinematográfico de Marvel?", opts:["Chris Evans","Chris Hemsworth","Robert Downey Jr.","Mark Ruffalo"], correct:2,
+      fact:"Robert Downey Jr. protagonizó \"Iron Man\" (2008), la película que dio inicio al Universo Cinematográfico de Marvel."},
+    {cat:"POP", type:"mcq", q:"¿Cuál fue uno de los primeros videojuegos arcade de gran éxito comercial, lanzado en 1972?", opts:["Pac-Man","Space Invaders","Pong","Tetris"], correct:2,
+      fact:"Pong simulaba un partido de tenis de mesa y ayudó a lanzar la industria de los videojuegos como negocio masivo."},
+    {cat:"POP", type:"mcq", q:"¿Qué artista lanzó el álbum \"Thriller\" en 1982?", opts:["Prince","Michael Jackson","Stevie Wonder","James Brown"], correct:1,
+      fact:"\"Thriller\" es, según distintas listas, el álbum más vendido de la historia, con más de 60 millones de copias en el mundo."},
+    {cat:"POP", type:"word", q:"¿Cómo se llama el fontanero italiano protagonista de la saga de videojuegos más famosa de Nintendo?", answer:"mario",
+      fact:"Mario debutó en 1981 en el juego arcade \"Donkey Kong\", donde todavía se llamaba \"Jumpman\"."},
+    {cat:"POP", type:"mcq", q:"¿Qué banda británica formaron Mick Jagger y Keith Richards?", opts:["The Who","The Rolling Stones","Led Zeppelin","The Kinks"], correct:1,
+      fact:"The Rolling Stones se formaron en Londres en 1962 y siguen activos, lo que los convierte en una de las bandas de rock más longevas."},
+    {cat:"POP", type:"mcq", q:"¿Qué actor interpretó a Neo en \"The Matrix\"?", opts:["Keanu Reeves","Will Smith","Tom Cruise","Brad Pitt"], correct:0,
+      fact:"\"The Matrix\" (1999) popularizó efectos visuales como el \"bullet time\", cámara lenta con movimiento de cámara alrededor de la acción."},
+    {cat:"POP", type:"mcq", q:"¿Qué serie sigue a un profesor de química que empieza a fabricar drogas?", opts:["Breaking Bad","The Wire","Ozark","Narcos"], correct:0,
+      fact:"\"Breaking Bad\" se emitió entre 2008 y 2013 y es frecuentemente citada entre las series mejor valoradas de la televisión."},
+    {cat:"POP", type:"word", q:"¿Qué cantante colombiana es conocida por éxitos como \"Hips Don't Lie\" y \"Waka Waka\"?", answer:"shakira",
+      fact:"Shakira combina en su música influencias del pop, rock latino y ritmos árabes, herencia de su padre de origen libanés."},
+    {cat:"POP", type:"word", q:"¿Qué videojuego de bloques, creado por Markus Persson, se volvió un fenómeno mundial?", answer:"minecraft",
+      fact:"Minecraft se lanzó en 2011 y se convirtió en uno de los videojuegos más vendidos de la historia, con versiones educativas incluidas."},
+    {cat:"POP", type:"mcq", q:"¿Qué director dirigió \"Jurassic Park\" y \"E.T.\"?", opts:["George Lucas","Steven Spielberg","James Cameron","Ridley Scott"], correct:1,
+      fact:"Spielberg es uno de los directores más taquilleros de la historia del cine, con éxitos en casi todos los géneros."},
+    {cat:"POP", type:"mcq", q:"¿Quién es un ícono del arte mexicano conocida por sus autorretratos llenos de simbolismo?", opts:["Frida Kahlo","Remedios Varo","Leonora Carrington","María Izquierdo"], correct:0,
+      fact:"Frida Kahlo sufrió un grave accidente de tráfico en su juventud, experiencia que influyó profundamente en su obra."},
+    {cat:"POP", type:"mcq", q:"¿Qué actriz interpreta a Hermione Granger en las películas de Harry Potter?", opts:["Emma Watson","Emma Stone","Emma Roberts","Emily Blunt"], correct:0,
+      fact:"Emma Watson tenía solo 9 años cuando fue elegida para el papel de Hermione en 1999."},
+    {cat:"POP", type:"word", q:"¿Cómo se llama el superhéroe de Marvel que se transforma en un gigante verde cuando se enoja?", answer:"hulk",
+      fact:"Hulk fue creado en 1962 por Stan Lee y Jack Kirby, inspirado en parte en historias como \"Dr. Jekyll y Mr. Hyde\"."},
+    {cat:"POP", type:"word", q:"¿Cómo se llama el juego de mesa clásico en el que hay que comprar propiedades y evitar la quiebra?", answer:"monopoly", accepts:["monopolio"],
+      fact:"El juego se basó originalmente en uno creado por Elizabeth Magie en 1903 para criticar la concentración de la propiedad."},
+    {cat:"POP", type:"word", q:"¿Qué grupo de K-pop surcoreano es conocido por el éxito \"Dynamite\"?", answer:"bts",
+      fact:"BTS se convirtió en el primer grupo de K-pop en encabezar el listado Billboard Hot 100 de Estados Unidos, en 2020."},
+
+    {cat:"DEP", type:"mcq", q:"¿Cada cuántos años se celebran los Juegos Olímpicos de verano?", opts:["Cada 2 años","Cada 3 años","Cada 4 años","Cada 5 años"], correct:2,
+      fact:"La tradición de un ciclo de cuatro años (la \"olimpiada\") viene de los Juegos de la Antigua Grecia."},
+    {cat:"DEP", type:"mcq", q:"¿En qué país se establecieron las reglas modernas del fútbol?", opts:["Brasil","Inglaterra","Italia","España"], correct:1,
+      fact:"Las reglas modernas se codificaron en Inglaterra en 1863, con la fundación de la Football Association."},
+    {cat:"DEP", type:"mcq", q:"¿Cuántos jugadores de un equipo de fútbol están en la cancha a la vez (sin contar suplentes)?", opts:["9","10","11","12"], correct:2,
+      fact:"Cada equipo alinea 11 jugadores, incluyendo al portero, desde que se estandarizó el reglamento en el siglo XIX."},
+    {cat:"DEP", type:"mcq", q:"¿En qué deporte se usa el término \"jaque mate\"?", opts:["Ajedrez","Damas","Go","Backgammon"], correct:0,
+      fact:"\"Jaque mate\" viene del persa \"shah mat\", que significa aproximadamente \"el rey está indefenso\"."},
+    {cat:"DEP", type:"mcq", q:"¿Cuántos anillos tiene el símbolo olímpico?", opts:["4","5","6","7"], correct:1,
+      fact:"Los cinco anillos representan la unión de cinco continentes, y sus colores fueron elegidos porque al menos uno aparece en cada bandera nacional de la época."},
+    {cat:"DEP", type:"mcq", q:"¿Qué selección ganó el primer Mundial de fútbol, en 1930?", opts:["Argentina","Brasil","Uruguay","Italia"], correct:2,
+      fact:"Uruguay fue anfitrión y campeón del primer Mundial, disputado en Montevideo."},
+    {cat:"DEP", type:"word", q:"¿En qué deporte se compite por la Copa América entre selecciones sudamericanas?", answer:"futbol",
+      fact:"La Copa América, disputada por primera vez en 1916, es el torneo de selecciones más antiguo del mundo que sigue vigente."},
+    {cat:"DEP", type:"mcq", q:"¿Cuántos puntos vale un touchdown en fútbol americano, sin contar la conversión?", opts:["3","6","7","8"], correct:1,
+      fact:"Tras el touchdown de 6 puntos, el equipo puede intentar una conversión extra de 1 o 2 puntos adicionales."},
+    {cat:"DEP", type:"mcq", q:"¿En qué ciudad se disputaron los primeros Juegos Olímpicos de la era moderna, en 1896?", opts:["Atenas","París","Londres","Roma"], correct:0,
+      fact:"Los Juegos de 1896 en Atenas revivieron una tradición que se remontaba a la Antigua Grecia, interrumpida durante más de 1.500 años."},
+    {cat:"DEP", type:"mcq", q:"¿Cuántos sets como máximo se juegan en un partido de tenis de Grand Slam masculino?", opts:["3","5","7","9"], correct:1,
+      fact:"Los partidos masculinos de Grand Slam se juegan al mejor de 5 sets, mientras que los femeninos son al mejor de 3."},
+    {cat:"DEP", type:"mcq", q:"¿En qué país se inventó el baloncesto?", opts:["Estados Unidos","Canadá","Inglaterra","Francia"], correct:0,
+      fact:"El baloncesto fue inventado en 1891 por James Naismith, un profesor canadiense que trabajaba en Massachusetts, Estados Unidos."},
+    {cat:"DEP", type:"mcq", q:"¿Cuántos jugadores conforman un equipo de baloncesto en la cancha, por lado?", opts:["4","5","6","7"], correct:1,
+      fact:"Cada equipo tiene 5 jugadores en cancha, aunque puede tener varios suplentes disponibles en el banco."},
+    {cat:"DEP", type:"mcq", q:"¿Qué selección ha ganado más Copas del Mundo de fútbol masculino?", opts:["Brasil","Alemania","Italia","Argentina"], correct:0,
+      fact:"Brasil ha ganado el Mundial en cinco ocasiones: 1958, 1962, 1970, 1994 y 2002."},
+    {cat:"DEP", type:"word", q:"¿En qué deporte se compite en una piscina usando estilos como crol, espalda y mariposa?", answer:"natacion",
+      fact:"El estilo crol es generalmente el más rápido de los estilos de natación competitiva."},
+    {cat:"DEP", type:"mcq", q:"¿Cuántos hoyos tiene un campo de golf estándar?", opts:["9","16","18","20"], correct:2,
+      fact:"El estándar de 18 hoyos se popularizó desde el club escocés de St Andrews en el siglo XIX."},
+    {cat:"DEP", type:"mcq", q:"¿Qué boxeador es conocido por la frase \"Vuela como una mariposa, pica como una abeja\"?", opts:["Mike Tyson","Muhammad Ali","George Foreman","Sugar Ray Robinson"], correct:1,
+      fact:"Muhammad Ali fue tricampeón mundial de los pesos pesados y una figura influyente también fuera del boxeo."},
+    {cat:"DEP", type:"mcq", q:"¿En qué país se originó el judo?", opts:["China","Japón","Corea del Sur","Tailandia"], correct:1,
+      fact:"El judo fue creado en 1882 por Jigoro Kano como una evolución del jiu-jitsu tradicional japonés."},
+    {cat:"DEP", type:"mcq", q:"¿Qué selección organizó y ganó el Mundial de fútbol de 1998?", opts:["Brasil","Francia","Alemania","Italia"], correct:1,
+      fact:"Francia venció a Brasil por 3 a 0 en la final, disputada en el Estadio de Francia, en las afueras de París."},
+    {cat:"DEP", type:"word", q:"¿En qué deporte de raqueta se disputa el torneo de Wimbledon?", answer:"tenis",
+      fact:"Wimbledon, disputado desde 1877, es el torneo de tenis más antiguo del mundo y el único de los grandes que se juega sobre césped."},
+
+    {cat:"NAT", type:"mcq", q:"¿Cuál es el animal terrestre más grande del mundo?", opts:["Rinoceronte blanco","Elefante africano","Hipopótamo","Jirafa"], correct:1,
+      fact:"El elefante africano puede pesar más de 6 toneladas, y sus orejas grandes le ayudan a regular la temperatura corporal."},
+    {cat:"NAT", type:"mcq", q:"¿Cuál es el animal más grande que ha existido en la Tierra?", opts:["Elefante africano","Tiburón ballena","Ballena azul","Diplodocus"], correct:2,
+      fact:"La ballena azul puede medir más de 25 metros y su corazón puede pesar tanto como un automóvil pequeño."},
+    {cat:"NAT", type:"mcq", q:"¿Cuántas patas tiene una araña?", opts:["6","8","10","12"], correct:1,
+      fact:"Las arañas, como todos los arácnidos, tienen 8 patas; los insectos, en cambio, tienen 6."},
+    {cat:"NAT", type:"mcq", q:"¿Cuál es el animal terrestre más rápido del mundo?", opts:["León","Guepardo","Antílope","Caballo"], correct:1,
+      fact:"El guepardo puede alcanzar unos 100-120 km/h en tramos cortos, aunque se cansa rápido y no puede sostener esa velocidad por mucho tiempo."},
+    {cat:"NAT", type:"mcq", q:"¿Cómo se llama el proceso por el cual las plantas producen su propio alimento?", opts:["Respiración","Fotosíntesis","Transpiración","Fermentación"], correct:1,
+      fact:"La fotosíntesis convierte luz solar, agua y CO2 en glucosa y oxígeno, y es la base de casi toda la vida en la Tierra."},
+    {cat:"NAT", type:"mcq", q:"¿Cuál es el felino más grande del mundo?", opts:["León","Jaguar","Tigre","Leopardo"], correct:2,
+      fact:"El tigre siberiano es el felino más grande, y puede llegar a pesar más de 300 kg."},
+    {cat:"NAT", type:"word", q:"¿Qué gas noble, más liviano que el aire, se usa para inflar globos festivos?", answer:"helio",
+      fact:"El helio es tan liviano que escapa poco a poco de la atmósfera terrestre hacia el espacio; por eso es un recurso finito y cada vez más valioso."},
+    {cat:"NAT", type:"word", q:"¿Qué palabra describe a una persona que no consume ningún producto de origen animal?", answer:"vegano", accepts:["vegana"],
+      fact:"El veganismo excluye no solo la carne, sino también huevos, lácteos y miel, a diferencia del vegetarianismo, que suele permitir algunos de esos productos."},
+    {cat:"NAT", type:"word", q:"¿Cómo se llama el único mamífero capaz de volar de forma activa?", answer:"murcielago",
+      fact:"Los murciélagos usan ecolocalización, emitiendo sonidos agudos y escuchando el eco, para orientarse en la oscuridad."},
+    {cat:"NAT", type:"word", q:"¿Cómo se llama la capa de gas que protege a la Tierra de buena parte de la radiación ultravioleta del sol?", answer:"ozono",
+      fact:"El uso de ciertos químicos industriales dañó esta capa en el siglo XX; tratados internacionales ayudaron a que comenzara a recuperarse."},
+    {cat:"NAT", type:"word", q:"¿Qué ave no puede volar pero es la más grande y pesada del mundo?", answer:"avestruz",
+      fact:"El avestruz no vuela, pero puede correr a más de 70 km/h, lo que lo convierte en el ave terrestre más veloz."},
+    {cat:"NAT", type:"mcq", q:"¿En qué continente se encuentra principalmente la selva amazónica?", opts:["África","América del Sur","Asia","Oceanía"], correct:1,
+      fact:"La selva amazónica se extiende principalmente por Brasil, pero también por Perú, Colombia y otros países sudamericanos."},
+    {cat:"NAT", type:"word", q:"¿Cómo se llama el proceso por el cual una oruga se transforma en mariposa?", answer:"metamorfosis",
+      fact:"Durante la metamorfosis, la oruga forma una crisálida en la que su cuerpo se reorganiza casi por completo antes de emerger como mariposa."},
+    {cat:"NAT", type:"mcq", q:"¿Qué mamífero tiene el período de gestación más largo?", opts:["Elefante","Ballena azul","Jirafa","Rinoceronte"], correct:0,
+      fact:"El elefante africano tiene una gestación de casi 22 meses, la más larga entre los mamíferos terrestres."},
+    {cat:"NAT", type:"mcq", q:"¿Qué tipo de animal es el axolote, capaz de regenerar extremidades?", opts:["Reptil","Anfibio","Pez","Mamífero"], correct:1,
+      fact:"El axolote es una salamandra mexicana que conserva rasgos de larva toda su vida adulta, una característica llamada neotenia."},
+    {cat:"NAT", type:"word", q:"¿Cómo se llama la relación biológica en la que dos especies conviven en estrecha asociación beneficiándose mutuamente?", answer:"simbiosis",
+      fact:"Un ejemplo clásico de simbiosis es el de los peces payaso y las anémonas, que se protegen y alimentan mutuamente."},
+    {cat:"NAT", type:"word", q:"¿Cómo se llama el árbol más alto del mundo, una especie de secuoya de California?", answer:"secuoya",
+      fact:"Las secuoyas más altas superan los 100 metros de altura y pueden vivir más de 2.000 años."},
+    {cat:"NAT", type:"word", q:"¿Qué animal es conocido por cambiar de color para camuflarse según su entorno o estado de ánimo?", answer:"camaleon",
+      fact:"Los camaleones cambian de color principalmente por comunicación y regulación de temperatura, más que por camuflaje puro."},
+    {cat:"NAT", type:"word", q:"¿Cómo se llama el estado en el que ciertos animales pasan todo el invierno para ahorrar energía?", answer:"hibernacion",
+      fact:"Durante la hibernación, animales como los osos reducen drásticamente su temperatura corporal, ritmo cardíaco y metabolismo."},
+    {cat:"NAT", type:"mcq", q:"¿Qué insecto poliniza la mayoría de las plantas con flor en el mundo?", opts:["La abeja","La mosca","La hormiga","La mariposa"], correct:0,
+      fact:"Las abejas son responsables de la polinización de gran parte de los cultivos que consumimos a diario."},
+
+    {cat:"TEC", type:"mcq", q:"¿A quién se suele considerar pionero de la computación moderna por su trabajo teórico?", opts:["Alan Turing","Charles Babbage","John von Neumann","Ada Lovelace"], correct:0,
+      fact:"Alan Turing formalizó en los años 30 el concepto de una máquina capaz de ejecutar cualquier algoritmo, la base teórica de las computadoras actuales."},
+    {cat:"TEC", type:"mcq", q:"¿Qué significa la sigla \"www\" en una dirección de internet?", opts:["World Wide Web","World Web Wide","Web World Wide","Wide World Web"], correct:0,
+      fact:"El término lo acuñó Tim Berners-Lee en 1989 al crear el sistema que dio origen a la web tal como la conocemos."},
+    {cat:"TEC", type:"mcq", q:"¿En qué año se fundó Google?", opts:["1994","1998","2001","2004"], correct:1,
+      fact:"Larry Page y Sergey Brin fundaron Google en 1998 como proyecto derivado de su investigación en Stanford."},
+    {cat:"TEC", type:"mcq", q:"¿Qué empresa desarrolló originalmente el sistema operativo Windows?", opts:["Apple","IBM","Microsoft","Xerox"], correct:2,
+      fact:"Microsoft lanzó la primera versión de Windows en 1985, aunque su gran despegue comercial llegó con Windows 95."},
+    {cat:"TEC", type:"mcq", q:"¿Qué significa la sigla \"HTML\"?", opts:["HyperText Markup Language","High Text Modern Language","Hyperlink Markup Language","Home Tool Markup Language"], correct:0,
+      fact:"HTML es el lenguaje que estructura el contenido de casi todas las páginas web desde inicios de los años 90."},
+    {cat:"TEC", type:"mcq", q:"¿A quién se atribuye tradicionalmente la invención del teléfono?", opts:["Thomas Edison","Alexander Graham Bell","Nikola Tesla","Guglielmo Marconi"], correct:1,
+      fact:"Bell patentó el teléfono en 1876, aunque la autoría es históricamente debatida porque otros inventores trabajaban en ideas similares al mismo tiempo."},
+    {cat:"TEC", type:"word", q:"¿Cómo se llama el instrumento que mide la temperatura?", answer:"termometro",
+      fact:"El termómetro de mercurio en vidrio, muy usado durante siglos, ha sido reemplazado en gran parte por versiones digitales e infrarrojas por razones de seguridad."},
+    {cat:"TEC", type:"word", q:"¿Con qué palabra se conoce a la conexión de voz y datos en tiempo real que usa este mismo juego para el audio en vivo, basada en conexiones directas entre navegadores?", answer:"webrtc",
+      fact:"WebRTC (Web Real-Time Communication) permite que dos navegadores intercambien audio, video o datos directamente, sin que el contenido pase por un servidor central."},
+    {cat:"TEC", type:"mcq", q:"¿Qué empresa creó el iPhone?", opts:["Samsung","Apple","Google","Nokia"], correct:1,
+      fact:"El primer iPhone se presentó en enero de 2007 y transformó por completo el mercado de teléfonos móviles."},
+    {cat:"TEC", type:"mcq", q:"¿Qué significa la sigla \"CPU\"?", opts:["Unidad Central de Procesamiento","Unidad de Control de Programas","Circuito de Proceso Unificado","Unidad de Control Periférico"], correct:0,
+      fact:"La CPU es considerada el \"cerebro\" de una computadora, encargada de ejecutar las instrucciones de los programas."},
+    {cat:"TEC", type:"mcq", q:"¿Quién cofundó Microsoft junto a Bill Gates?", opts:["Paul Allen","Steve Jobs","Steve Wozniak","Larry Page"], correct:0,
+      fact:"Gates y Allen fundaron Microsoft en 1975, inicialmente enfocados en crear software para las primeras computadoras personales."},
+    {cat:"TEC", type:"word", q:"¿Qué red social fue fundada por Mark Zuckerberg en 2004?", answer:"facebook",
+      fact:"Facebook comenzó como una red exclusiva para estudiantes de la Universidad de Harvard antes de expandirse al público general."},
+    {cat:"TEC", type:"mcq", q:"¿Qué significa la sigla \"PDF\"?", opts:["Portable Document Format","Printed Document File","Personal Data Format","Public Document Format"], correct:0,
+      fact:"El formato PDF fue creado por Adobe en 1993 para que los documentos se vieran igual sin importar el dispositivo o programa usado."},
+    {cat:"TEC", type:"mcq", q:"¿Qué empresa fabrica los procesadores móviles \"Snapdragon\"?", opts:["Qualcomm","Intel","AMD","Nvidia"], correct:0,
+      fact:"Los procesadores Snapdragon de Qualcomm se usan en una gran cantidad de teléfonos Android en todo el mundo."},
+    {cat:"TEC", type:"word", q:"¿Cómo se llama el lenguaje de programación creado por Guido van Rossum en 1991?", answer:"python",
+      fact:"Python debe su nombre al grupo de comedia británico Monty Python, no a la serpiente, según su propio creador."},
+    {cat:"TEC", type:"mcq", q:"¿Qué significa la sigla \"URL\"?", opts:["Localizador Uniforme de Recursos","Lenguaje Unificado de Redes","Unidad de Recursos Locales","Registro Único de Localización"], correct:0,
+      fact:"Una URL es, en esencia, la \"dirección\" que le indica al navegador exactamente dónde encontrar un recurso en internet."},
+    {cat:"TEC", type:"mcq", q:"¿Qué empresa china es conocida por la aplicación TikTok?", opts:["Tencent","Alibaba","ByteDance","Huawei"], correct:2,
+      fact:"TikTok es propiedad de ByteDance y se lanzó internacionalmente en 2017, tras fusionarse con la app Musical.ly."},
+    {cat:"TEC", type:"word", q:"¿Qué significan las siglas \"IA\" en tecnología?", answer:"inteligencia artificial",
+      fact:"La inteligencia artificial busca que las máquinas realicen tareas que normalmente requieren razonamiento o aprendizaje humano."},
+    {cat:"TEC", type:"mcq", q:"¿Qué empresa creó la consola de videojuegos PlayStation?", opts:["Microsoft","Nintendo","Sony","Sega"], correct:2,
+      fact:"La primera PlayStation se lanzó en 1994 en Japón y ayudó a popularizar los juegos en formato de disco compacto."},
+    {cat:"TEC", type:"word", q:"¿Cómo se llama la red descentralizada de registros en la que se basan criptomonedas como Bitcoin?", answer:"blockchain",
+      fact:"Un blockchain (\"cadena de bloques\") almacena información en bloques enlazados y distribuidos entre muchos participantes, dificultando su alteración."},
+
+    {cat:"ACT", type:"mcq", q:"¿Qué equipo ganó la Champions League 2024-25 tras vencer 5-0 al Inter de Milán en la final?", opts:["Real Madrid","Paris Saint-Germain","Manchester City","Bayern Múnich"], correct:1,
+      fact:"La final se disputó el 31 de mayo de 2025 en el Allianz Arena de Múnich; fue el primer título de Champions para el PSG."},
+    {cat:"ACT", type:"mcq", q:"¿Qué equipo se coronó campeón de la Champions League 2025-26 tras vencer al Arsenal en la final?", opts:["Real Madrid","Arsenal","Paris Saint-Germain","FC Barcelona"], correct:2,
+      fact:"La final, jugada en Budapest el 30 de mayo de 2026, terminó 4-3 a favor del PSG tras tiempo extra."},
+    {cat:"ACT", type:"mcq", q:"¿Qué equipo de las Grandes Ligas de béisbol revalidó el título en la Serie Mundial 2025?", opts:["New York Yankees","Los Angeles Dodgers","Toronto Blue Jays","Houston Astros"], correct:1,
+      fact:"Los Dodgers vencieron a los Blue Jays en siete juegos, el primer bicampeonato consecutivo de las Grandes Ligas en 25 años."},
+    {cat:"ACT", type:"word", q:"¿Qué escritor húngaro ganó el Premio Nobel de Literatura 2025?", answer:"laszlo krasznahorkai", accepts:["krasznahorkai"],
+      fact:"Krasznahorkai es conocido por su prosa densa y sus frases extensas, con obras como \"Tango satánico\"."},
+    {cat:"ACT", type:"mcq", q:"¿Quién ganó el Premio Nobel de la Paz 2025?", opts:["María Corina Machado","Volodímir Zelenski","Malala Yousafzai","Denis Mukwege"], correct:0,
+      fact:"El Comité Nobel Noruego reconoció su labor en la promoción de los derechos democráticos."},
+    {cat:"ACT", type:"mcq", q:"¿Qué película ganó el Óscar a Mejor Película en la ceremonia de 2026?", opts:["Una batalla tras otra","Oppenheimer","Anora","Wicked"], correct:0,
+      fact:"Fue la cinta más premiada de la noche, con seis estatuillas incluida la de mejor casting."},
+    {cat:"ACT", type:"mcq", q:"¿Quién condujo la ceremonia de los Premios Óscar de 2026?", opts:["Jimmy Kimmel","Conan O'Brien","Amy Schumer","Chris Rock"], correct:1,
+      fact:"La ceremonia se realizó el 15 de marzo de 2026 en el Dolby Theatre de Hollywood."},
+    {cat:"ACT", type:"mcq", q:"¿Qué empresa realizó alrededor de 170 lanzamientos orbitales durante 2025, la mayoría con el cohete Falcon 9?", opts:["SpaceX","Blue Origin","NASA","Roscosmos"], correct:0,
+      fact:"SpaceX también avanzó en 2025 con varias pruebas de vuelo de su cohete gigante Starship."},
+    {cat:"ACT", type:"word", q:"¿Qué país logró en enero de 2025 el acoplamiento orbital de dos satélites en la misión SpaDeX?", answer:"india",
+      fact:"El acoplamiento, logrado por la agencia espacial ISRO, sumó a India al reducido grupo de países con esa capacidad tecnológica."},
+    {cat:"ACT", type:"mcq", q:"¿Qué tipo de objeto celeste visitó primero la misión china Tianwen-2, lanzada en 2025?", opts:["Un cometa","Un asteroide cercano a la Tierra","Una luna de Marte","Un cinturón de asteroides"], correct:1,
+      fact:"Tras estudiar el asteroide, la misión Tianwen-2 tiene previsto dirigirse posteriormente hacia un cometa."},
+    {cat:"ACT", type:"word", q:"¿Cómo se llama el cohete gigante de SpaceX que realizó importantes vuelos de prueba en 2025 rumbo a futuras misiones lunares y marcianas?", answer:"starship",
+      fact:"Starship es, hasta ahora, el cohete más grande y potente jamás construido."},
+    {cat:"ACT", type:"mcq", q:"¿Quiénes compartieron el Premio Nobel de Química 2025 por el desarrollo de estructuras metal-orgánicas?", opts:["Susumu Kitagawa, Richard Robson y Omar Yaghi","John Clarke, Michel Devoret y John Martinis","Mary Brunkow, Fred Ramsdell y Shimon Sakaguchi","Joel Mokyr, Philippe Aghion y Peter Howitt"], correct:0,
+      fact:"Las estructuras metal-orgánicas (MOF, por sus siglas en inglés) tienen aplicaciones que van desde capturar gases hasta purificar agua."},
+    {cat:"ACT", type:"mcq", q:"¿Por qué investigación recibieron Brunkow, Ramsdell y Sakaguchi el Nobel de Medicina 2025?", opts:["El sistema inmunitario y la tolerancia inmune","La edición genética con CRISPR","El desarrollo de vacunas de ARN mensajero","El trasplante de órganos"], correct:0,
+      fact:"Sus estudios ayudaron a entender cómo el cuerpo evita atacar sus propios tejidos, clave para tratar enfermedades autoinmunes."},
+    {cat:"ACT", type:"mcq", q:"¿Qué economistas ganaron el Nobel de Ciencias Económicas 2025 por explicar el crecimiento sostenido mediante la innovación?", opts:["Joel Mokyr, Philippe Aghion y Peter Howitt","Paul Krugman y Joseph Stiglitz","Daniel Kahneman y Richard Thaler","Esther Duflo y Abhijit Banerjee"], correct:0,
+      fact:"Mokyr fue reconocido por identificar las condiciones para el progreso tecnológico sostenido, y Aghion y Howitt por su teoría de la \"destrucción creativa\"."}
+  ];
+
+  const BADGES = [
+    {score:6,  label:"🧠 Aprendiz"},
+    {score:14, label:"🧠 Erudito"},
+    {score:24, label:"🎓 Sabio de sala"},
+    {score:38, label:"🏆 Maestro del saber"},
+    {score:56, label:"👑 Enciclopedia andante"}
+  ];
+  function currentBadge(score){
+    let b = null;
+    for(const item of BADGES){ if(score >= item.score) b = item; }
+    return b;
+  }
+
+  function launchConfetti(){
+    const colors = ["#7c5cff","#2fd4c9","#ffb84d","#ff6b81","#eef1fb"];
+    for(let i=0;i<28;i++){
+      const el = document.createElement("div");
+      el.className = "confetti-piece";
+      el.style.left = (Math.random()*100) + "vw";
+      el.style.background = colors[Math.floor(Math.random()*colors.length)];
+      el.style.animationDelay = (Math.random()*0.3) + "s";
+      el.style.transform = "rotate(" + Math.floor(Math.random()*360) + "deg)";
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2700);
+    }
+  }
+  function animateNumber(el, from, to){
+    if(!el || from === to){ if(el) el.textContent = to; return; }
+    const duration = 400;
+    const start = performance.now();
+    function step(now){
+      const p = Math.min((now - start) / duration, 1);
+      el.textContent = Math.round(from + (to - from) * p);
+      if(p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  const $ = (id) => document.getElementById(id);
+
+  /* ================= HOME VIEW ================= */
+  const nameInput = $("playerName");
+  const roomInput = $("roomCode");
+  const btnEnter = $("btnEnter");
+  const catGrid = $("catGrid");
+
+  try{
+    const savedName = localStorage.getItem("duelo:lastName");
+    if(savedName) nameInput.value = savedName;
+  }catch(e){}
+
+  CATEGORY_DEFS.forEach(c => {
+    const label = document.createElement("label");
+    label.className = "cat-check checked";
+    label.innerHTML = `<input type="checkbox" data-code="${c.code}" checked> ${c.name}`;
+    catGrid.appendChild(label);
+  });
+  catGrid.addEventListener("change", (e) => {
+    if(e.target.tagName === "INPUT"){
+      e.target.closest(".cat-check").classList.toggle("checked", e.target.checked);
+      updateEnterButton();
+    }
+  });
+  function getSelectedCats(){
+    return Array.from(catGrid.querySelectorAll("input[type=checkbox]:checked")).map(i => i.dataset.code);
+  }
+  function randomCode(){
+    const words = ["LUCIERNAGA","COMETA","BRUJULA","FAROL","MAREA","ECLIPSE","ORBITA","VELERO","NEBULOSA","PUENTE","LATIDO","ALBA","MERIDIANO","ANTARES","GALAXIA"];
+    const w = words[Math.floor(Math.random()*words.length)];
+    const n = Math.floor(Math.random()*90+10);
+    return w + n;
+  }
+  $("btnRandomCode").addEventListener("click", () => { roomInput.value = randomCode(); updateEnterButton(); });
+  roomInput.addEventListener("input", () => {
+    roomInput.value = roomInput.value.toUpperCase().replace(/[^A-Z0-9]/g,"");
+    updateEnterButton();
+  });
+  nameInput.addEventListener("input", updateEnterButton);
+  function updateEnterButton(){
+    btnEnter.disabled = !(nameInput.value.trim().length >= 1 && roomInput.value.trim().length >= 3 && getSelectedCats().length >= 1);
+  }
+  updateEnterButton();
+
+  function parseHash(){
+    const h = location.hash.replace(/^#/, "");
+    if(!h) return null;
+    const params = new URLSearchParams(h);
+    const r = params.get("room");
+    const cats = params.get("cats");
+    if(r) return {room:r.toUpperCase(), cats: cats ? cats.split(",") : null};
+    return null;
+  }
+  (function applyDeepLink(){
+    const link = parseHash();
+    if(link){
+      roomInput.value = link.room;
+      if(link.cats && link.cats.length){
+        catGrid.querySelectorAll("input[type=checkbox]").forEach(inp => {
+          const on = link.cats.includes(inp.dataset.code);
+          inp.checked = on;
+          inp.closest(".cat-check").classList.toggle("checked", on);
+        });
+      }
+      updateEnterButton();
+    }
+  })();
+
+  let myName = "", room = "", selectedCats = CATEGORY_DEFS.map(c => c.code);
+  btnEnter.addEventListener("click", () => {
+    myName = nameInput.value.trim().slice(0,18);
+    room = roomInput.value.trim();
+    selectedCats = getSelectedCats();
+    try{ localStorage.setItem("duelo:lastName", myName); }catch(e){}
+    startSession();
+  });
+
+  /* ================= GAME STATE ================= */
+  let pool = [];
+  let isHost = false;
+  let mySlot = 0; // host = 1, guests get 2..4
+  let players = {}; // slot -> {name, score, peerId, streak}
+  let g = null; // authoritative game state (host keeps canonical copy; guests keep mirrored copy)
+  let roundLocked = false;
+  let timerInterval = null;
+  let advanceTimeout = null;
+  let lastBadgeLabel = null;
+
+  function freshGameState(){
+    return {
+      deck: shuffleRandom(pool.map((_,i)=>i)),
+      cursor: 0,
+      round: 1,
+      posInRound: 1,
+      roundCorrect: {}, // slot -> count correct this round (per player, for host's own summary only shows host or self view)
+      qIndex: null,
+      turnOrder: [],
+      turnPos: 0,
+      tried: [],
+      timeLeft: TIMER_MAIN,
+      phase: "answering" // answering | revealed | transition
+    };
+  }
+
+  function connectedSlots(){
+    return Object.keys(players).map(s => parseInt(s,10)).sort((a,b)=>a-b);
+  }
+
+  function startSession(){
+    pool = TRIVIA.filter(q => selectedCats.includes(q.cat));
+    if(pool.length === 0) pool = TRIVIA.slice();
+
+    $("view-home").style.display = "none";
+    $("view-game").style.display = "block";
+    $("hudRoom").textContent = room;
+    $("btnRoundAdjust").style.display = "none";
+
+    initNetwork();
+  }
+
+  function currentQuestion(){
+    if(!g || g.qIndex === null) return null;
+    return pool[g.qIndex];
+  }
+
+  function reanimateCard(){
+    const card = $("roundCard");
+    card.classList.remove("enter");
+    void card.offsetWidth;
+    card.classList.add("enter");
+  }
+
+  function renderRoster(){
+    const row = $("rosterRow");
+    const slots = connectedSlots();
+    let html = "";
+    slots.forEach(slot => {
+      const p = players[slot];
+      if(!p) return;
+      const isMe = slot === mySlot;
+      const isTurn = g && g.phase === "answering" && g.turnOrder[g.turnPos] === slot;
+      html += `<div class="roster-item ${isMe ? "me":""} ${isTurn ? "turn":""}">
+        <span class="rname">${p.name}${slot === 1 ? ' <span class="rhost">ANFITRIÓN</span>':""}</span>
+        <span class="rscore">${p.score||0}</span>
+      </div>`;
+    });
+    row.innerHTML = html;
+  }
+
+  function refreshBadgeAndStreak(){
+    const me = players[mySlot];
+    if(!me) return;
+    const streakPill = $("hudStreakPill");
+    if((me.streak||0) >= 2){
+      streakPill.style.display = "flex";
+      streakPill.classList.toggle("active", me.streak >= 3);
+      $("hudStreak").textContent = me.streak;
+    } else {
+      streakPill.style.display = "none";
+      streakPill.classList.remove("active");
+    }
+    const badge = currentBadge(me.score||0);
+    const badgeEl = $("badgeInline");
+    if(badge){
+      badgeEl.style.display = "inline-flex";
+      badgeEl.textContent = badge.label;
+      if(badge.label !== lastBadgeLabel){
+        badgeEl.classList.remove("pop"); void badgeEl.offsetWidth; badgeEl.classList.add("pop");
+        launchConfetti();
+      }
+      lastBadgeLabel = badge.label;
+    } else {
+      badgeEl.style.display = "none";
+    }
+  }
+
+  function updateTimerUI(){
+    const num = $("hudTimer");
+    const pill = $("hudTimerPill");
+    if(!num || !pill || !g) return;
+    num.textContent = Math.max(g.timeLeft, 0);
+    pill.classList.toggle("urgent", g.timeLeft <= 5);
+  }
+
+  /* ================= RENDERING (driven by shared state `g`) ================= */
+  function renderFromState(){
+    if(!g) return;
+    $("hudRound").textContent = g.round;
+    $("hudPos").textContent = g.posInRound;
+    updateTimerUI();
+    renderRoster();
+    refreshBadgeAndStreak();
+
+    if(g.phase === "transition"){ return; } // handled by showRoundTransition directly
+    if(g.phase === "answering"){ renderAnswering(); }
+    else if(g.phase === "revealed"){ renderRevealedFromState(); }
+  }
+
+  function renderAnswering(){
+    const q = currentQuestion();
+    if(!q) return;
+    roundLocked = false;
+    const catName = (CATEGORY_DEFS.find(c => c.code === q.cat) || {}).name || q.cat;
+    const turnSlot = g.turnOrder[g.turnPos];
+    const turnPlayer = players[turnSlot];
+    const myTurn = turnSlot === mySlot;
+
+    const card = $("roundCard");
+    let html = "";
+    html += `<div class="category">${catName}${q.type === "word" ? " · Escribe la palabra" : ""}</div>`;
+    html += `<div class="prompt-title">Ronda ${g.round} · Pregunta ${g.posInRound}/20</div>`;
+    html += `<div class="question-text">${q.q}</div>`;
+
+    const isSteal = g.tried.length > 0;
+    html += `<div class="turn-banner ${myTurn ? "mine" : (isSteal ? "steal":"")}">${myTurn ? "¡Es tu turno!" : "Le toca a " + (turnPlayer ? turnPlayer.name : "…")}${isSteal ? " (robo)" : ""}</div>`;
+
+    if(q.type === "word"){
+      html += `<div class="word-input-wrap">
+        <input type="text" id="wordInput" class="word-input" placeholder="Escribe tu respuesta…" autocomplete="off" ${myTurn ? "" : "disabled"}>
+        <div class="word-hint">No importan mayúsculas ni acentos.</div>
+      </div>`;
+      html += `<button class="btn" id="btnConfirm" ${myTurn ? '' : 'style="display:none;"'} disabled>Confirmar respuesta</button>`;
+    } else {
+      html += `<div class="options ${myTurn ? "" : "locked"}" id="optionsWrap">`;
+      q.opts.forEach((opt, i) => {
+        html += `<button class="option-btn" data-idx="${i}" type="button" ${myTurn ? "" : "disabled"}>${opt}</button>`;
+      });
+      html += `</div>`;
+      html += `<button class="btn" id="btnConfirm" ${myTurn ? '' : 'style="display:none;"'} disabled>Confirmar respuesta</button>`;
+    }
+
+    card.innerHTML = html;
+    reanimateCard();
+
+    if(!myTurn) return;
+
+    if(q.type === "word"){
+      const input = $("wordInput");
+      const confirmBtn = $("btnConfirm");
+      input.addEventListener("input", () => { confirmBtn.disabled = input.value.trim().length === 0; });
+      input.addEventListener("keydown", (e) => { if(e.key === "Enter" && !confirmBtn.disabled) confirmBtn.click(); });
+      confirmBtn.addEventListener("click", () => {
+        if(roundLocked) return;
+        roundLocked = true;
+        const given = input.value;
+        const isCorrect = normalize(given) === normalize(q.answer) || (q.accepts && q.accepts.some(a => normalize(a) === normalize(given)));
+        submitMyAnswer(isCorrect, null, given);
+      });
+      setTimeout(() => input.focus(), 50);
+    } else {
+      const buttons = Array.from(card.querySelectorAll(".option-btn"));
+      let selected = null;
+      buttons.forEach(b => {
+        b.addEventListener("click", () => {
+          selected = parseInt(b.dataset.idx, 10);
+          buttons.forEach(x => x.classList.remove("selected"));
+          b.classList.add("selected");
+          $("btnConfirm").disabled = false;
+        });
+      });
+      $("btnConfirm").addEventListener("click", () => {
+        if(roundLocked || selected === null) return;
+        roundLocked = true;
+        const isCorrect = selected === q.correct;
+        submitMyAnswer(isCorrect, selected, null);
+      });
+    }
+  }
+
+  function renderRevealedFromState(){
+    const q = currentQuestion();
+    if(!q) return;
+    const catName = (CATEGORY_DEFS.find(c => c.code === q.cat) || {}).name || q.cat;
+    const r = g.lastReveal || {};
+    const card = $("roundCard");
+    let html = "";
+    html += `<div class="category">${catName}${q.type === "word" ? " · Escribe la palabra" : ""}</div>`;
+    html += `<div class="prompt-title">Ronda ${g.round} · Pregunta ${g.posInRound}/20</div>`;
+    html += `<div class="question-text">${q.q}</div>`;
+
+    const bySlotName = r.bySlot ? (players[r.bySlot] ? players[r.bySlot].name : "alguien") : null;
+    let noteHtml = "";
+    let revealCls = r.correct ? "ok" : "bad";
+    let tierText;
+    if(r.correct && r.bySlot){
+      tierText = (r.bySlot === mySlot) ? "¡Correcto! Ganaste el punto." : `${bySlotName} acertó.`;
+    } else if(r.bySlot){
+      tierText = "Nadie acertó esta vez.";
+    } else {
+      tierText = "¡Se acabó el tiempo! Nadie respondió.";
+    }
+    if(r.bySlot) noteHtml = `<div class="duel-note">${r.correct ? "✅" : "❌"} Respondió ${bySlotName}</div>`;
+
+    html += noteHtml;
+
+    if(q.type === "word"){
+      html += `<div class="reveal ${revealCls}">
+        <div class="tier">${tierText}</div>
+        <div class="detail">Respuesta correcta: "${q.answer}"</div>
+      </div>`;
+    } else {
+      html += `<div class="options">`;
+      q.opts.forEach((opt, i) => {
+        let cls = "option-btn";
+        if(i === q.correct) cls += " correct";
+        html += `<button class="${cls}" disabled type="button">${opt}</button>`;
+      });
+      html += `</div>`;
+      html += `<div class="reveal ${revealCls}">
+        <div class="tier">${tierText}</div>
+        <div class="detail">Respuesta correcta: ${q.opts[q.correct]}</div>
+      </div>`;
+    }
+
+    html += `<div class="fact-card"><div class="fact-label">💡 Dato curioso</div><p>${q.fact}</p></div>`;
+    html += `<button class="btn secondary" id="btnNextRound">Siguiente ahora →</button>`;
+    html += `<div class="next-hint">Avanza solo en unos segundos, con tiempo de sobra para leer el dato…</div>`;
+
+    card.innerHTML = html;
+    reanimateCard();
+
+    $("btnNextRound").addEventListener("click", () => {
+      if(isHost) hostAdvanceAfterReveal();
+    });
+    if(!isHost) $("btnNextRound").style.display = "none";
+  }
+
+  function showRoundTransitionUI(finishedRound, summaryScores){
+    const card = $("roundCard");
+    let html = `<div class="round-transition">
+      <div class="rt-label">Ronda ${finishedRound} completada</div>
+      <h2>⚡ ¡20 de 20 preguntas! ⚡</h2>
+      <div class="rt-stats">${summaryScores}</div>
+      <div class="rt-next">Preparando la Ronda ${finishedRound + 1}…</div>`;
+    if(isHost){ html += `<button class="btn" id="btnStartNextRound">Comenzar Ronda ${finishedRound + 1} ahora →</button>`; }
+    html += `</div>`;
+    card.innerHTML = html;
+    reanimateCard();
+    launchConfetti();
+    setTimeout(launchConfetti, 300);
+    if(isHost){
+      $("btnStartNextRound").addEventListener("click", () => hostBeginNextRound());
+    }
+  }
+
+  /* ================= HOST-ONLY AUTHORITATIVE LOGIC ================= */
+  function hostStartQuestion(){
+    if(g.cursor >= g.deck.length){ g.deck = shuffleRandom(pool.map((_,i)=>i)); g.cursor = 0; }
+    g.qIndex = g.deck[g.cursor]; g.cursor += 1;
+    const slots = connectedSlots();
+    const startOffset = (g.round * QUESTIONS_PER_ROUND + g.posInRound) % Math.max(slots.length,1);
+    g.turnOrder = slots.slice(startOffset).concat(slots.slice(0, startOffset));
+    if(g.turnOrder.length === 0) g.turnOrder = [mySlot];
+    g.turnPos = 0;
+    g.tried = [];
+    g.timeLeft = TIMER_MAIN;
+    g.phase = "answering";
+    g.lastReveal = null;
+    broadcastState();
+    renderFromState();
+    startHostTimer();
+  }
+
+  function startHostTimer(){
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      g.timeLeft -= 1;
+      if(g.timeLeft <= 0){
+        hostHandleAnswer(g.turnOrder[g.turnPos], false, true);
+      } else {
+        broadcastTick();
+        updateTimerUI();
+      }
+    }, 1000);
+  }
+
+  function hostHandleAnswer(fromSlot, correct, isTimeout){
+    if(!g || g.phase !== "answering") return;
+    if(fromSlot !== g.turnOrder[g.turnPos]) return; // not their turn
+    if(g.tried.includes(fromSlot)) return;
+
+    if(correct){
+      clearInterval(timerInterval);
+      const p = players[fromSlot];
+      if(p){ p.score = (p.score||0) + 1; p.streak = (p.streak||0) + 1; if(fromSlot === mySlot) g.roundCorrect[fromSlot] = (g.roundCorrect[fromSlot]||0)+1; }
+      g.phase = "revealed";
+      g.lastReveal = {correct:true, bySlot:fromSlot};
+      broadcastState();
+      renderFromState();
+      if(isHost) advanceTimeout = setTimeout(() => hostAdvanceAfterReveal(), FACT_DISPLAY_MS);
+      return;
+    }
+
+    // wrong answer or timeout: mark tried, reset that player's streak
+    g.tried.push(fromSlot);
+    const p = players[fromSlot];
+    if(p) p.streak = 0;
+
+    const remaining = g.turnOrder.filter(s => !g.tried.includes(s));
+    if(remaining.length === 0){
+      clearInterval(timerInterval);
+      g.phase = "revealed";
+      g.lastReveal = {correct:false, bySlot: isTimeout ? null : fromSlot};
+      broadcastState();
+      renderFromState();
+      advanceTimeout = setTimeout(() => hostAdvanceAfterReveal(), FACT_DISPLAY_MS);
+    } else {
+      const nextSlot = remaining[0];
+      g.turnPos = g.turnOrder.indexOf(nextSlot);
+      g.timeLeft = TIMER_STEAL;
+      broadcastState();
+      renderFromState();
+      // el interval sigue corriendo con el nuevo timeLeft (TIMER_STEAL)
+    }
+  }
+
+  function hostAdvanceAfterReveal(){
+    clearTimeout(advanceTimeout);
+    clearInterval(timerInterval);
+    if(g.posInRound >= QUESTIONS_PER_ROUND){
+      g.phase = "transition";
+      broadcastState();
+      const summary = connectedSlots().map(s => `${players[s].name}: ${players[s].score||0}`).join(" · ");
+      showRoundTransitionUI(g.round, summary);
+      broadcastTransition(summary);
+    } else {
+      g.posInRound += 1;
+      hostStartQuestion();
+    }
+  }
+
+  function hostBeginNextRound(){
+    g.round += 1;
+    g.posInRound = 1;
+    g.roundCorrect = {};
+    hostStartQuestion();
+  }
+
+  function submitMyAnswer(correct, chosenIdx, wordGiven){
+    if(isHost){
+      hostHandleAnswer(mySlot, correct, false);
+    } else {
+      sendToHost({t:"submitAnswer", correct});
+    }
+  }
+
+  /* ================= NETWORKING (PeerJS: host-star topology) ================= */
+  let peer = null;
+  let hostConn = null; // guest's connection to host
+  let guestConns = {}; // host's connections, keyed by peerId
+  let remoteAudioEls = {}; // peerId -> <audio>
+  let localStream = null;
+  let audioState = "idle";
+  let knownPeerIds = {}; // slot -> peerId (for audio mesh)
+
+  const ICE_CONFIG = { iceServers: [
+    {urls:"stun:stun.l.google.com:19302"},
+    {urls:"stun:stun1.l.google.com:19302"},
+    {urls:"stun:global.stun.twilio.com:3478"}
+  ]};
+
+  function roomHostId(roomCode){ return "duelosaberes-" + hashCode(roomCode.toUpperCase()).toString(36) + "-host"; }
+
+  function setOnline(isOnline){
+    const dot = $("onlineDot"); const label = $("onlineLabel");
+    if(!dot || !label) return;
+    dot.classList.toggle("on", isOnline);
+    label.textContent = isOnline ? (connectedSlots().length > 1 ? "Todos conectados" : "Esperando a más jugadores…") : "Esperando conexión…";
+  }
+
+  function initNetwork(){
+    if(typeof Peer === "undefined"){
+      // sin PeerJS disponible: modo individual local
+      isHost = true; mySlot = 1;
+      players = {1:{name:myName, score:0, streak:0}};
+      g = freshGameState();
+      $("onlineLabel").textContent = "Modo individual (sin conexión en vivo disponible)";
+      hostStartQuestion();
+      return;
+    }
+    const hid = roomHostId(room);
+    let p;
+    try{ p = new Peer(hid, {config: ICE_CONFIG}); }catch(e){ setOnline(false); return; }
+
+    p.on("open", () => {
+      peer = p; isHost = true; mySlot = 1;
+      players = {1:{name:myName, score:0, streak:0, peerId:hid}};
+      knownPeerIds[1] = hid;
+      g = freshGameState();
+      setOnline(true);
+      peer.on("connection", (conn) => {
+        conn.on("open", () => {
+          if(connectedSlots().length >= MAX_PLAYERS){ conn.send(JSON.stringify({t:"full"})); conn.close(); return; }
+        });
+        conn.on("data", (raw) => handleHostMessage(conn, raw));
+        conn.on("close", () => hostRemovePlayerByConn(conn));
+      });
+      peer.on("call", (call) => answerIncomingCall(call));
+      hostStartQuestion();
+    });
+
+    p.on("error", (err) => {
+      if(err && err.type === "unavailable-id"){
+        joinAsGuest();
+      } else {
+        setOnline(false);
+      }
+    });
+  }
+
+  function joinAsGuest(){
+    let gp;
+    try{ gp = new Peer({config: ICE_CONFIG}); }catch(e){ setOnline(false); return; }
+    gp.on("open", () => {
+      peer = gp; isHost = false;
+      const conn = peer.connect(roomHostId(room), {reliable:true});
+      hostConn = conn;
+      conn.on("open", () => {
+        conn.send(JSON.stringify({t:"join", name: myName}));
+        setOnline(true);
+      });
+      conn.on("data", (raw) => handleGuestMessage(raw));
+      conn.on("close", () => { setOnline(false); });
+      peer.on("call", (call) => answerIncomingCall(call));
+    });
+    gp.on("error", () => setOnline(false));
+  }
+
+  function hostRemovePlayerByConn(conn){
+    const peerId = conn.peer;
+    const slot = Object.keys(players).find(s => players[s].peerId === peerId);
+    if(slot){ delete players[slot]; delete guestConns[peerId]; broadcastRoster(); renderFromState(); }
+  }
+
+  function nextFreeSlot(){
+    for(let s=2; s<=MAX_PLAYERS; s++){ if(!players[s]) return s; }
+    return null;
+  }
+
+  function handleHostMessage(conn, raw){
+    let msg; try{ msg = JSON.parse(raw); }catch(e){ return; }
+    if(msg.t === "join"){
+      const slot = nextFreeSlot();
+      if(!slot){ conn.send(JSON.stringify({t:"full"})); return; }
+      players[slot] = {name: (msg.name||"Jugador").slice(0,18), score:0, streak:0, peerId: conn.peer};
+      knownPeerIds[slot] = conn.peer;
+      guestConns[conn.peer] = conn;
+      conn.send(JSON.stringify({t:"welcome", slot}));
+      broadcastRoster();
+      broadcastState();
+      renderFromState();
+    } else if(msg.t === "submitAnswer"){
+      const slot = Object.keys(players).find(s => players[s].peerId === conn.peer);
+      if(slot) hostHandleAnswer(parseInt(slot,10), !!msg.correct, false);
+    }
+  }
+
+  function broadcastRaw(obj){
+    const str = JSON.stringify(obj);
+    Object.values(guestConns).forEach(c => { try{ if(c.open) c.send(str); }catch(e){} });
+  }
+  function broadcastRoster(){
+    broadcastRaw({t:"roster", players: Object.fromEntries(Object.entries(players).map(([s,p]) => [s, {name:p.name, score:p.score, peerId:p.peerId}]))});
+  }
+  function broadcastState(){
+    broadcastRaw({t:"state", round:g.round, posInRound:g.posInRound, qIndex:g.qIndex, turnOrder:g.turnOrder,
+      turnPos:g.turnPos, tried:g.tried, timeLeft:g.timeLeft, phase:g.phase, lastReveal:g.lastReveal,
+      players: Object.fromEntries(Object.entries(players).map(([s,p]) => [s, {name:p.name, score:p.score}]))});
+  }
+  function broadcastTick(){ broadcastRaw({t:"tick", timeLeft:g.timeLeft}); }
+  function broadcastTransition(summary){ broadcastRaw({t:"transition", round:g.round, summary}); }
+
+  function handleGuestMessage(raw){
+    let msg; try{ msg = JSON.parse(raw); }catch(e){ return; }
+    if(msg.t === "welcome"){
+      mySlot = msg.slot;
+    } else if(msg.t === "full"){
+      $("onlineLabel").textContent = "La sala ya tiene 4 jugadores.";
+    } else if(msg.t === "roster"){
+      Object.keys(msg.players).forEach(s => {
+        const slot = parseInt(s,10);
+        const incoming = msg.players[s];
+        players[slot] = Object.assign({streak:0}, players[slot]||{}, incoming);
+        if(incoming.peerId) knownPeerIds[slot] = incoming.peerId;
+      });
+      Object.keys(players).forEach(s => { if(!msg.players[s]) delete players[s]; });
+      renderRoster();
+    } else if(msg.t === "state"){
+      if(!g) g = freshGameState();
+      const prevScore = players[mySlot] ? players[mySlot].score : 0;
+      g.round = msg.round; g.posInRound = msg.posInRound; g.qIndex = msg.qIndex; g.turnOrder = msg.turnOrder;
+      g.turnPos = msg.turnPos; g.tried = msg.tried; g.timeLeft = msg.timeLeft; g.phase = msg.phase; g.lastReveal = msg.lastReveal;
+      Object.keys(msg.players).forEach(s => {
+        const slot = parseInt(s,10);
+        const prevStreak = players[slot] ? players[slot].streak : 0;
+        players[slot] = Object.assign({streak:prevStreak}, players[slot]||{}, msg.players[s]);
+      });
+      if(players[mySlot] && players[mySlot].score > prevScore) players[mySlot].streak = (players[mySlot].streak||0)+1;
+      renderFromState();
+    } else if(msg.t === "tick"){
+      if(g){ g.timeLeft = msg.timeLeft; updateTimerUI(); }
+    } else if(msg.t === "transition"){
+      showRoundTransitionUI(msg.round, msg.summary);
+    }
+  }
+
+  function sendToHost(obj){
+    if(hostConn && hostConn.open){ try{ hostConn.send(JSON.stringify(obj)); }catch(e){} }
+  }
+
+  /* ================= UTILITY BUTTONS ================= */
+  $("btnShare").addEventListener("click", () => {
+    const url = location.origin + location.pathname + "#room=" + encodeURIComponent(room) + "&cats=" + selectedCats.join(",");
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(() => {
+        alert("Enlace copiado. Envíaselo a quienes jueguen contigo:\n" + url);
+      }).catch(() => { prompt("Copia este enlace y envíaselo a quienes jueguen contigo:", url); });
+    } else {
+      prompt("Copia este enlace y envíaselo a quienes jueguen contigo:", url);
+    }
+  });
+
+  $("btnRoundAdjust").addEventListener("click", () => {
+    if(isHost) hostAdvanceAfterReveal();
+  });
+
+  $("btnLeave").addEventListener("click", () => {
+    if(confirm("¿Salir de la sala?")){
+      clearInterval(timerInterval); clearTimeout(advanceTimeout);
+      teardownNetwork();
+      location.hash = "";
+      $("view-game").style.display = "none";
+      $("view-home").style.display = "block";
+    }
+  });
+
+  function teardownNetwork(){
+    hangUp();
+    Object.values(guestConns).forEach(c => { try{ c.close(); }catch(e){} });
+    guestConns = {};
+    if(hostConn){ try{ hostConn.close(); }catch(e){} hostConn = null; }
+    if(peer){ try{ peer.destroy(); }catch(e){} peer = null; }
+  }
+
+  /* ================= AUDIO MESH (each pair calls each other) ================= */
+  function answerIncomingCall(call){
+    (async () => {
+      if(!localStream && audioState !== "idle-declined"){
+        try{ localStream = await navigator.mediaDevices.getUserMedia({audio:true}); audioState = "active"; }
+        catch(e){ localStream = null; }
+      }
+      call.answer(localStream || undefined);
+      call.on("stream", (stream) => handleRemoteStream(call.peer, stream));
+      updateAudioButton();
+    })();
+  }
+
+  function handleRemoteStream(peerId, stream){
+    let el = remoteAudioEls[peerId];
+    if(!el){
+      el = document.createElement("audio");
+      el.autoplay = true; el.style.display = "none";
+      document.body.appendChild(el);
+      remoteAudioEls[peerId] = el;
+    }
+    el.srcObject = stream;
+    const p = el.play();
+    if(p && p.catch){ p.catch(() => { const btn = $("btnPlayAudioFallback"); if(btn) btn.style.display = "inline-flex"; }); }
+    if(audioState !== "muted"){ audioState = "active"; }
+    updateAudioButton();
+  }
+
+  function updateAudioButton(){
+    const btn = $("btnAudioToggle"); const hangup = $("btnHangup");
+    if(!btn) return;
+    if(audioState === "idle"){ btn.textContent = "🎙️ Activar audio en vivo"; btn.disabled=false; hangup.style.display="none"; }
+    else if(audioState === "connecting"){ btn.textContent = "🎙️ Conectando…"; btn.disabled=true; hangup.style.display="none"; }
+    else if(audioState === "active"){ btn.textContent = "🔇 Silenciar micrófono"; btn.disabled=false; hangup.style.display="inline-flex"; }
+    else if(audioState === "muted"){ btn.textContent = "🎙️ Reactivar micrófono"; btn.disabled=false; hangup.style.display="inline-flex"; }
+  }
+
+  async function toggleAudio(){
+    if(audioState === "idle"){
+      if(!peer){ alert("Todavía se está conectando. Espera unos segundos e inténtalo de nuevo."); return; }
+      audioState = "connecting"; updateAudioButton();
+      try{ localStream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+      catch(e){ alert("No se pudo acceder al micrófono. Revisa los permisos del navegador."); audioState="idle"; updateAudioButton(); return; }
+      Object.keys(knownPeerIds).forEach(slot => {
+        if(parseInt(slot,10) === mySlot) return;
+        const pid = knownPeerIds[slot];
+        try{
+          const call = peer.call(pid, localStream);
+          if(call) call.on("stream", (stream) => handleRemoteStream(pid, stream));
+        }catch(e){}
+      });
+      audioState = "active"; updateAudioButton();
+    } else if(audioState === "active"){
+      localStream.getAudioTracks().forEach(t => t.enabled = false);
+      audioState = "muted"; updateAudioButton();
+    } else if(audioState === "muted"){
+      localStream.getAudioTracks().forEach(t => t.enabled = true);
+      audioState = "active"; updateAudioButton();
+    }
+  }
+  function hangUp(){
+    if(localStream){ localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+    Object.values(remoteAudioEls).forEach(el => { try{ el.remove(); }catch(e){} });
+    remoteAudioEls = {};
+    audioState = "idle"; updateAudioButton();
+  }
+
+  $("btnAudioToggle").addEventListener("click", toggleAudio);
+  $("btnHangup").addEventListener("click", hangUp);
+  $("btnPlayAudioFallback").addEventListener("click", () => {
+    Object.values(remoteAudioEls).forEach(el => el.play().catch(()=>{}));
+    $("btnPlayAudioFallback").style.display = "none";
+  });
+
+})();
+</script>
+</body>
+</html>

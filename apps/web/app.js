@@ -1,7 +1,9 @@
 const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+const isNetlify = location.hostname === "duelo-de-saberes.netlify.app";
 const requestedServer = new URLSearchParams(location.search).get("server");
 if (requestedServer) localStorage.setItem("duelo:serverUrl", requestedServer.replace(/\/$/, ""));
-const SERVER_URL = window.DUELO_SERVER_URL || requestedServer || localStorage.getItem("duelo:serverUrl") || (isLocal ? "http://127.0.0.1:3000" : location.origin);
+const defaultServer = isLocal ? "http://127.0.0.1:3000" : isNetlify ? "https://duelo-api-production.up.railway.app" : location.origin;
+const SERVER_URL = window.DUELO_SERVER_URL || requestedServer || localStorage.getItem("duelo:serverUrl") || defaultServer;
 
 function loadSocketClient() {
   return new Promise((resolve, reject) => {

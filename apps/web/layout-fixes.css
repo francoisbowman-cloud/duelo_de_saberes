@@ -1,0 +1,29 @@
+.entry-layout {
+  grid-template-columns: minmax(0, calc(100% - 440px)) minmax(320px, 380px);
+  gap: 60px;
+}
+
+.intro,
+.entry-panel {
+  min-width: 0;
+}
+
+.intro h1 {
+  overflow-wrap: break-word;
+}
+
+.brand,
+.intro h1,
+.promise > span,
+.entry-panel h2,
+.room-heading strong,
+.score,
+.stage-top h2,
+.timer strong,
+.question-card h3 {
+  font-family: "Space Grotesk", Inter, sans-serif;
+}
+
+@media (max-width: 800px) {
+  .entry-layout { grid-template-columns: 1fr; }
+}

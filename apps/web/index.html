@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b0d16">
+  <title>Duelo de Saberes - Arena</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./layout-fixes.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./"><span class="brand-mark">D</span><span>Duelo de <strong>Saberes</strong></span></a>
+      <div class="connection"><span id="connectionDot"></span><span id="connectionText">Conectando...</span></div>
+    </header>
+
+    <section id="entryView" class="entry-layout">
+      <div class="intro">
+        <h1>Convierte lo que sabes en una <em>rivalidad memorable.</em></h1>
+        <p>Entra en segundos. Compite en vivo. El servidor protege tu turno, tu tiempo y tu puntuación.</p>
+        <div class="promise"><span>01</span><p><strong>Sin cuentas obligatorias</strong><br>Solo necesitas un nombre y un código.</p></div>
+        <div class="promise"><span>02</span><p><strong>Partidas resistentes</strong><br>La arena continúa aunque el creador se vaya.</p></div>
+      </div>
+      <form id="entryForm" class="entry-panel">
+        <h2>Entrar a la arena</h2>
+        <label>Tu nombre<input id="displayName" maxlength="18" autocomplete="nickname" placeholder="¿Cómo te llamamos?" required></label>
+        <label>Código de sala <span>opcional</span><input id="roomCode" maxlength="6" autocomplete="off" placeholder="ABC123"></label>
+        <button id="enterButton" class="button primary" type="submit">Entrar a la sala</button>
+        <button id="createButton" class="button secondary" type="button">Crear una sala nueva</button>
+        <p id="entryError" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="arenaView" class="arena hidden">
+      <aside class="side-panel">
+        <div class="room-heading"><span>Sala</span><strong id="roomLabel">------</strong><button id="copyButton" title="Copiar enlace">Copiar</button></div>
+        <div class="roster-title"><span>Competidores</span><span id="playerCount">0 / 4</span></div>
+        <div id="roster" class="roster"></div>
+        <button id="startButton" class="button primary">Comenzar duelo</button>
+        <p class="privacy-note">El audio en vivo se incorporará en la siguiente fase y nunca se almacenará.</p>
+      </aside>
+      <div class="stage">
+        <div class="stage-top"><div><span id="phaseLabel">SALA DE ESPERA</span><h2 id="categoryLabel">La arena está lista</h2></div><div class="timer"><strong id="timerValue">--</strong><span>seg</span></div></div>
+        <article id="questionCard" class="question-card">
+          <p id="statusText">Comparte el código. La partida comenzará cuando alguien pulse “Comenzar duelo”.</p>
+          <h3 id="questionText">Que gane quien más sabe.</h3>
+          <div id="answers" class="answers"></div>
+          <form id="wordForm" class="word-form hidden"><input id="wordAnswer" maxlength="120" placeholder="Escribe tu respuesta"><button class="button primary">Responder</button></form>
+          <div id="reveal" class="reveal hidden"></div>
+        </article>
+        <p id="arenaError" class="error" role="alert"></p>
+      </div>
+    </section>
+  </main>
+  <div id="reconnectBanner" class="reconnect hidden"><strong>Reconectando...</strong><span>Tu lugar y tu puntaje están protegidos.</span></div>
+  <script src="./app.js"></script>
+</body>
+</html>

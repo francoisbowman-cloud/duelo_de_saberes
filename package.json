@@ -1,0 +1,13 @@
+{
+  "name": "duelo-de-saberes",
+  "private": true,
+  "workspaces": ["apps/server", "packages/shared"],
+  "scripts": {
+    "build": "npm run build -w @duelo/shared && npm run build -w @duelo/server",
+    "dev": "npm run dev -w @duelo/server",
+    "start": "npm run start -w @duelo/server",
+    "test": "npm run build -w @duelo/shared && npm run test -w @duelo/server",
+    "typecheck": "npm run typecheck -w @duelo/shared && npm run build -w @duelo/shared && npm run typecheck -w @duelo/server"
+  },
+  "engines": { "node": ">=20" }
+}

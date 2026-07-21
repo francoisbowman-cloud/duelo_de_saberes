@@ -18,6 +18,7 @@ describe("Socket.IO vertical slice", () => {
     await new Promise<void>((resolve) => socket!.once("connect", resolve));
     const result = await new Promise<any>((resolve) => socket!.emit("room:create", { displayName: "Francois" }, resolve));
     expect(result.ok).toBe(true);
+    expect(result.data.room.gameConfig).toEqual({ difficulty: "easy", desiredPlayers: 2 });
     expect(result.data.room.players[0].displayName).toBe("Francois");
     expect(result.data.sessionToken).toBeTruthy();
     socket.close(); await io.close(); await app.close();

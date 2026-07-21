@@ -12,7 +12,8 @@ export const clientSchemas = {
   "room:rejoin": z.object({ code: roomCodeSchema, sessionToken: sessionTokenSchema }),
   "room:leave": z.object({ code: roomCodeSchema }),
   "game:start": z.object({ code: roomCodeSchema }),
-  "game:propose": z.object({ code: roomCodeSchema, gameId: z.enum(["trivia", "riddles", "word-infiltrator", "shared-puzzle"]) }),
+  "game:propose": z.object({ code: roomCodeSchema, gameId: z.enum(["trivia", "riddles", "word-infiltrator", "shared-puzzle", "shared-story", "maze", "detectives"]) }),
+  "game:configure": z.object({ code: roomCodeSchema, difficulty: z.enum(["easy", "medium", "hard"]) }),
   "game:ready": z.object({ code: roomCodeSchema, ready: z.boolean() }),
   "game:return-to-lobby": z.object({ code: roomCodeSchema }),
   "riddle:request-hint": z.object({ code: roomCodeSchema, eventSequence: z.number().int().nonnegative() }),
@@ -23,6 +24,9 @@ export const clientSchemas = {
   "puzzle:request-lock": z.object({ code: roomCodeSchema, pieceId: z.string().max(20) }),
   "puzzle:move-piece": z.object({ code: roomCodeSchema, pieceId: z.string().max(20), x: z.number().min(0).max(1), y: z.number().min(0).max(1) }),
   "puzzle:release-piece": z.object({ code: roomCodeSchema, pieceId: z.string().max(20), targetSlot: z.number().int().min(0).max(24).nullable() }),
+  "story:add": z.object({ code: roomCodeSchema, text: z.string().trim().min(2).max(280) }),
+  "maze:move": z.object({ code: roomCodeSchema, direction: z.enum(["up", "down", "left", "right"]) }),
+  "detective:action": z.object({ code: roomCodeSchema, actionId: z.string().min(1).max(40) }),
   "audio:status": z.object({ code: roomCodeSchema, enabled: z.boolean(), muted: z.boolean() }),
   "audio:signal": z.object({ code: roomCodeSchema, targetPlayerId: z.string().uuid(), kind: z.enum(["offer", "answer", "ice"]), data: z.unknown() }),
   "game:submit-answer": z.object({ code: roomCodeSchema, answer: z.union([z.string().max(120), z.number().int().min(0).max(5)]), eventSequence: z.number().int().nonnegative() }),
@@ -73,17 +77,26 @@ export type RoomState = {
   updatedAt: string;
   maxPlayers: number;
   players: PlayerState[];
-  selectedGameId: "trivia" | "riddles" | "word-infiltrator" | "shared-puzzle" | null;
+  selectedGameId: GameId | null;
   proposedByPlayerId: string | null;
   readyPlayerIds: string[];
   game: GameState | null;
   riddleGame: RiddlePublicState | null;
   wordGame: WordGamePublicState | null;
   puzzleGame: PuzzlePublicState | null;
+  storyGame: StoryPublicState | null;
+  mazeGame: MazePublicState | null;
+  detectiveGame: DetectivePublicState | null;
+  gameConfig: { difficulty: "easy" | "medium" | "hard" };
 };
+
+export type GameId = "trivia" | "riddles" | "word-infiltrator" | "shared-puzzle" | "shared-story" | "maze" | "detectives";
 
 export type PuzzlePieceState = { id: string; currentX: number; currentY: number; correctSlot: number; isPlaced: boolean; controlledByPlayerId: string | null };
 export type PuzzlePublicState = { phase: "playing" | "finished"; imageId: "abstract" | "landscape" | "illustration"; rows: number; columns: number; pieces: Record<string, PuzzlePieceState>; completedPieceIds: string[]; startedAt: number; finishedAt: number | null };
+export type StoryPublicState = { phase: "playing" | "finished"; turnPlayerId: string; entries: { playerId: string; text: string; createdAt: string }[]; maxEntries: number };
+export type MazePublicState = { phase: "playing" | "finished"; size: number; player: { row: number; column: number }; exit: { row: number; column: number }; walls: string[]; moves: number };
+export type DetectivePublicState = { phase: "investigating" | "solved"; caseId: string; title: string; level: number; totalLevels: number; synopsis: string; clues: string[]; journal: string[]; availableActions: { id: string; label: string }[]; startedAt: string; updatedAt: string };
 
 export type WordGamePublicState = {
   phase: "clue_round" | "voting" | "guessing" | "reveal" | "finished";
@@ -126,6 +139,7 @@ export interface ClientToServerEvents {
   "game:start": (payload: z.input<(typeof clientSchemas)["game:start"]>, ack: (result: Result<RoomState>) => void) => void;
   "game:propose": (payload: z.input<(typeof clientSchemas)["game:propose"]>, ack: (result: Result<RoomState>) => void) => void;
   "game:ready": (payload: z.input<(typeof clientSchemas)["game:ready"]>, ack: (result: Result<RoomState>) => void) => void;
+  "game:configure": (payload: z.input<(typeof clientSchemas)["game:configure"]>, ack: (result: Result<RoomState>) => void) => void;
   "game:return-to-lobby": (payload: z.input<(typeof clientSchemas)["game:return-to-lobby"]>, ack: (result: Result<RoomState>) => void) => void;
   "riddle:request-hint": (payload: z.input<(typeof clientSchemas)["riddle:request-hint"]>, ack: (result: Result<{ accepted: true }>) => void) => void;
   "riddle:submit-answer": (payload: z.input<(typeof clientSchemas)["riddle:submit-answer"]>, ack: (result: Result<{ accepted: true }>) => void) => void;
@@ -135,6 +149,9 @@ export interface ClientToServerEvents {
   "puzzle:request-lock": (payload: z.input<(typeof clientSchemas)["puzzle:request-lock"]>, ack: (result: Result<{ granted: boolean }>) => void) => void;
   "puzzle:move-piece": (payload: z.input<(typeof clientSchemas)["puzzle:move-piece"]>) => void;
   "puzzle:release-piece": (payload: z.input<(typeof clientSchemas)["puzzle:release-piece"]>, ack: (result: Result<{ placed: boolean }>) => void) => void;
+  "story:add": (payload: z.input<(typeof clientSchemas)["story:add"]>, ack: (result: Result<{ accepted: true }>) => void) => void;
+  "maze:move": (payload: z.input<(typeof clientSchemas)["maze:move"]>, ack: (result: Result<{ accepted: true }>) => void) => void;
+  "detective:action": (payload: z.input<(typeof clientSchemas)["detective:action"]>, ack: (result: Result<{ accepted: true }>) => void) => void;
   "audio:status": (payload: z.input<(typeof clientSchemas)["audio:status"]>, ack: (result: Result<{ accepted: true }>) => void) => void;
   "audio:signal": (payload: z.input<(typeof clientSchemas)["audio:signal"]>) => void;
   "game:submit-answer": (payload: z.input<(typeof clientSchemas)["game:submit-answer"]>, ack: (result: Result<{ accepted: true }>) => void) => void;

@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import type { GameState, PlayerState, PublicQuestion, PuzzlePublicState, RiddlePublicState, RoomState, WordGamePrivateState, WordGamePublicState } from "@duelo/shared";
+import { readFileSync, writeFileSync } from "node:fs";
+import type { DetectivePublicState, GameId, GameState, MazePublicState, PlayerState, PublicQuestion, PuzzlePublicState, RiddlePublicState, RoomState, StoryPublicState, WordGamePrivateState, WordGamePublicState } from "@duelo/shared";
 import { questions, type Question } from "./questions.js";
 import { riddles, type Riddle } from "./riddles.js";
 import { wordPairs } from "./word-pairs.js";
@@ -62,19 +63,21 @@ const publicRoom = (room: InternalRoom): RoomState => ({
   riddleGame: room.riddleGame,
   wordGame: room.wordGame,
   puzzleGame: room.puzzleGame,
+  storyGame: room.storyGame, mazeGame: room.mazeGame, detectiveGame: room.detectiveGame, gameConfig: room.gameConfig,
 });
 
 export class GameEngine {
   private rooms = new Map<string, InternalRoom>();
   private onEvent: ((event: EngineEvent) => void) | null = null;
 
+  private stateFile = process.env.DETECTIVE_STATE_FILE || "";
   constructor(
     private now = () => Date.now(),
     private questionMs = 30_000,
     private stealMs = 10_000,
     private revealMs = 6_000,
     private questionBank: Question[] = questions,
-  ) {}
+  ) { this.restoreDurableRooms(); }
 
   setEventListener(listener: (event: EngineEvent) => void) { this.onEvent = listener; }
 
@@ -85,7 +88,7 @@ export class GameEngine {
     const room: InternalRoom = {
       id: randomUUID(), code, status: "lobby", createdAt: timestamp, updatedAt: timestamp,
       maxPlayers: 4, players: [], selectedGameId: null, proposedByPlayerId: null, readyPlayerIds: [],
-      game: null, riddleGame: null, wordGame: null, puzzleGame: null, questionOrder: shuffled(this.questionBank.map((question) => question.id)),
+      game: null, riddleGame: null, wordGame: null, puzzleGame: null, storyGame: null, mazeGame: null, detectiveGame: null, gameConfig: { difficulty: "easy" }, questionOrder: shuffled(this.questionBank.map((question) => question.id)),
       riddleOrder: shuffled(riddles.map((riddle) => riddle.id)),
       wordPairOrder: shuffled(wordPairs.map((_, index) => index)), wordAssignments: {}, wordMeta: null, wordVotes: {}, wordGuesses: {}, puzzleLockTimers: {},
     };
@@ -119,6 +122,9 @@ export class GameEngine {
     if (room.selectedGameId === "riddles") return this.startRiddles(room);
     if (room.selectedGameId === "word-infiltrator") return this.startWordGame(room);
     if (room.selectedGameId === "shared-puzzle") return this.startPuzzle(room);
+    if (room.selectedGameId === "shared-story") return this.startStory(room);
+    if (room.selectedGameId === "maze") return this.startMaze(room);
+    if (room.selectedGameId === "detectives") return this.startDetectives(room);
     room.selectedGameId = "trivia";
     room.questionOrder = reshuffled(this.questionBank.map((question) => question.id), room.questionOrder[0]);
     room.status = "playing";
@@ -131,13 +137,20 @@ export class GameEngine {
     return publicRoom(room);
   }
 
-  proposeGame(code: string, playerId: string, gameId: "trivia" | "riddles" | "word-infiltrator" | "shared-puzzle") {
+  proposeGame(code: string, playerId: string, gameId: GameId) {
     const room = this.requireMember(code, playerId);
     if (room.status !== "lobby") throw new GameError("INVALID_PHASE", "Regresa al lobby antes de elegir otro juego");
     room.selectedGameId = gameId;
     room.proposedByPlayerId = playerId;
     room.readyPlayerIds = [];
     room.updatedAt = this.timestamp();
+    const visible = publicRoom(room); this.emit({ type: "state", room: visible }); return visible;
+  }
+
+  configureGame(code: string, playerId: string, difficulty: "easy" | "medium" | "hard") {
+    const room = this.requireMember(code, playerId);
+    if (room.status !== "lobby") throw new GameError("INVALID_PHASE", "La dificultad se elige antes de comenzar");
+    room.gameConfig.difficulty = difficulty; room.readyPlayerIds = []; room.updatedAt = this.timestamp();
     const visible = publicRoom(room); this.emit({ type: "state", room: visible }); return visible;
   }
 
@@ -237,9 +250,41 @@ export class GameEngine {
     room.updatedAt = this.timestamp(); this.emitPuzzle(room); if (state.phase === "finished") this.emit({ type: "finished", room: publicRoom(room) }); return placed;
   }
 
+  addStoryEntry(code: string, playerId: string, text: string) {
+    const room = this.requireMember(code, playerId); const state = room.storyGame;
+    if (!state || state.phase !== "playing") throw new GameError("INVALID_PHASE", "No hay una historia activa");
+    if (state.turnPlayerId !== playerId) throw new GameError("NOT_YOUR_TURN", "Es el turno de la otra persona");
+    state.entries.push({ playerId, text, createdAt: this.timestamp() });
+    if (state.entries.length >= state.maxEntries) { state.phase = "finished"; room.status = "results"; }
+    else state.turnPlayerId = room.players.filter((p) => p.connected).find((p) => p.id !== playerId)?.id ?? playerId;
+    room.updatedAt = this.timestamp(); this.persistDurableRooms(); this.emit({ type: "state", room: publicRoom(room) }); return publicRoom(room);
+  }
+
+  moveMaze(code: string, playerId: string, direction: "up" | "down" | "left" | "right") {
+    const room = this.requireMember(code, playerId); const state = room.mazeGame;
+    if (!state || state.phase !== "playing") throw new GameError("INVALID_PHASE", "No hay un laberinto activo");
+    const delta = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] }[direction];
+    const row = state.player.row + delta[0], column = state.player.column + delta[1], key = `${row},${column}`;
+    if (row < 0 || column < 0 || row >= state.size || column >= state.size || state.walls.includes(key)) throw new GameError("BLOCKED_PATH", "Ese camino está bloqueado");
+    state.player = { row, column }; state.moves += 1;
+    if (row === state.exit.row && column === state.exit.column) { state.phase = "finished"; room.status = "results"; }
+    room.updatedAt = this.timestamp(); this.emit({ type: "state", room: publicRoom(room) }); return publicRoom(room);
+  }
+
+  detectiveAction(code: string, playerId: string, actionId: string) {
+    const room = this.requireMember(code, playerId); const state = room.detectiveGame;
+    if (!state || state.phase !== "investigating") throw new GameError("INVALID_PHASE", "No hay un caso activo");
+    const action = state.availableActions.find((item) => item.id === actionId); if (!action) throw new GameError("INVALID_ACTION", "Esa línea de investigación ya no está disponible");
+    const discoveries = ["La cámara del muelle se apagó exactamente a las 22:17.", "El barro rojizo no proviene del jardín, sino de la cantera norte.", "La firma del recibo fue imitada; el trazo revela una persona zurda.", "Una llamada de siete segundos conecta al testigo con el almacén.", "La llave hallada abre el casillero 18 de la estación.", "Dentro del casillero hay una fotografía que contradice la coartada."];
+    state.clues.push(discoveries[Math.min(state.level - 1, discoveries.length - 1)]!); state.journal.push(`${this.timestamp()} · ${action.label}`); state.level += 1; state.updatedAt = this.timestamp();
+    if (state.level > state.totalLevels) { state.phase = "solved"; state.availableActions = []; room.status = "results"; state.journal.push("Caso resuelto: la evidencia completa identifica al responsable."); }
+    else state.availableActions = [{ id: `investigate-${state.level}`, label: ["Revisar cámaras", "Analizar la tierra", "Comparar firmas", "Rastrear la llamada", "Abrir el casillero", "Confrontar la coartada"][state.level - 1]! }];
+    room.updatedAt = this.timestamp(); this.persistDurableRooms(); this.emit({ type: "state", room: publicRoom(room) }); return publicRoom(room);
+  }
+
   returnToLobby(code: string, playerId: string) {
     const room = this.requireMember(code, playerId); this.clearTimer(room);
-    room.status = "lobby"; room.game = null; room.riddleGame = null; room.wordGame = null; room.puzzleGame = null; room.selectedGameId = null; room.proposedByPlayerId = null; room.readyPlayerIds = [];
+    room.status = "lobby"; room.game = null; room.riddleGame = null; room.wordGame = null; room.puzzleGame = null; room.storyGame = null; room.mazeGame = null; room.detectiveGame = null; room.selectedGameId = null; room.proposedByPlayerId = null; room.readyPlayerIds = [];
     Object.keys(room.puzzleLockTimers).forEach((id) => this.clearPuzzleLock(room, id));
     room.wordAssignments = {}; room.wordMeta = null; room.wordVotes = {}; room.wordGuesses = {};
     room.players.forEach((player) => { player.score = 0; player.streak = 0; }); room.updatedAt = this.timestamp();
@@ -374,11 +419,16 @@ export class GameEngine {
   }
 
   private startPuzzle(room: InternalRoom) {
-    const rows = 3, columns = 3; const imageIds = ["abstract", "landscape", "illustration"] as const; const imageId = imageIds[Math.floor(Math.random() * imageIds.length)]!;
+    const size = room.gameConfig.difficulty === "hard" ? 5 : room.gameConfig.difficulty === "medium" ? 4 : 3; const rows = size, columns = size; const imageIds = ["abstract", "landscape", "illustration"] as const; const imageId = imageIds[Math.floor(Math.random() * imageIds.length)]!;
     const pieces = Object.fromEntries(shuffled(Array.from({ length: rows * columns }, (_, index) => index)).map((correctSlot, trayIndex) => [`piece-${correctSlot}`, { id: `piece-${correctSlot}`, currentX: .05 + (trayIndex % columns) * .34, currentY: .7 + Math.floor(trayIndex / columns) * .14, correctSlot, isPlaced: false, controlledByPlayerId: null }]));
     room.game = null; room.riddleGame = null; room.wordGame = null; room.status = "playing"; room.puzzleGame = { phase: "playing", imageId, rows, columns, pieces, completedPieceIds: [], startedAt: this.now(), finishedAt: null };
     room.updatedAt = this.timestamp(); this.emitPuzzle(room); return publicRoom(room);
   }
+
+  private clearActiveGames(room: InternalRoom) { room.game = null; room.riddleGame = null; room.wordGame = null; room.puzzleGame = null; room.storyGame = null; room.mazeGame = null; room.detectiveGame = null; }
+  private startStory(room: InternalRoom) { this.clearActiveGames(room); const players = room.players.filter((p) => p.connected); room.status = "playing"; room.storyGame = { phase: "playing", turnPlayerId: players[Math.floor(Math.random() * players.length)]!.id, entries: [{ playerId: "narrador", text: "La luz se apagó justo cuando alguien llamó a la puerta.", createdAt: this.timestamp() }], maxEntries: room.gameConfig.difficulty === "hard" ? 20 : room.gameConfig.difficulty === "medium" ? 14 : 8 }; room.updatedAt = this.timestamp(); this.emit({ type: "state", room: publicRoom(room) }); return publicRoom(room); }
+  private startMaze(room: InternalRoom) { this.clearActiveGames(room); const size = room.gameConfig.difficulty === "hard" ? 9 : room.gameConfig.difficulty === "medium" ? 7 : 5; const walls = ["1,1", "1,2", "2,3", "3,1", "3,3", "4,3", "5,1", "5,2", "6,5", "7,3"].filter((key) => key.split(",").every((n) => Number(n) < size)); room.status = "playing"; room.mazeGame = { phase: "playing", size, player: { row: 0, column: 0 }, exit: { row: size - 1, column: size - 1 }, walls, moves: 0 }; room.updatedAt = this.timestamp(); this.emit({ type: "state", room: publicRoom(room) }); return publicRoom(room); }
+  private startDetectives(room: InternalRoom) { this.clearActiveGames(room); const now = this.timestamp(); room.status = "playing"; room.detectiveGame = { phase: "investigating", caseId: "muelle-2217", title: "El silencio del muelle", level: 1, totalLevels: 6, synopsis: "Una restauradora desapareció y dejó seis rastros contradictorios. Cada decisión abre el siguiente nivel del caso.", clues: [], journal: [now + " · Caso abierto"], availableActions: [{ id: "investigate-1", label: "Inspeccionar el muelle" }], startedAt: now, updatedAt: now }; room.updatedAt = now; this.persistDurableRooms(); this.emit({ type: "state", room: publicRoom(room) }); return publicRoom(room); }
 
   private emitPuzzle(room: InternalRoom) { const state = this.requirePuzzle(room); const visible = publicRoom(room); this.emit({ type: "state", room: visible }); this.emit({ type: "puzzle", room: visible, state }); }
   private renewPuzzleLock(room: InternalRoom, pieceId: string, playerId: string) { this.clearPuzzleLock(room, pieceId); room.puzzleLockTimers[pieceId] = setTimeout(() => { const piece = room.puzzleGame?.pieces[pieceId]; if (piece?.controlledByPlayerId === playerId) { piece.controlledByPlayerId = null; this.emitPuzzle(room); } delete room.puzzleLockTimers[pieceId]; }, 5_000); room.puzzleLockTimers[pieceId]!.unref?.(); }
@@ -486,6 +536,8 @@ export class GameEngine {
   }
 
   private emit(event: EngineEvent) { this.onEvent?.(event); }
+  private persistDurableRooms() { if (!this.stateFile) return; try { const rooms = [...this.rooms.values()].filter((room) => room.detectiveGame).map(({ timer: _timer, puzzleLockTimers: _locks, ...room }) => ({ ...room, players: room.players.map((player) => ({ ...player, socketId: null, connected: false })) })); writeFileSync(this.stateFile, JSON.stringify({ savedAt: this.timestamp(), rooms }), "utf8"); } catch { /* el juego continúa aunque el almacenamiento no esté disponible */ } }
+  private restoreDurableRooms() { if (!this.stateFile) return; try { const parsed = JSON.parse(readFileSync(this.stateFile, "utf8")) as { rooms?: InternalRoom[] }; for (const restored of parsed.rooms ?? []) this.rooms.set(restored.code, { ...restored, players: restored.players.map((player) => ({ ...player, socketId: null, connected: false })), puzzleLockTimers: {} }); } catch { /* primer arranque o archivo vacío */ } }
   private clearTimer(room: InternalRoom) { if (room.timer) clearTimeout(room.timer); room.timer = undefined; }
   private timestamp() { return new Date(this.now()).toISOString(); }
   private requireRoom(code: string) { const room = this.rooms.get(code); if (!room) throw new GameError("ROOM_NOT_FOUND", "La sala no existe"); return room; }

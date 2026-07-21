@@ -111,6 +111,11 @@ export async function buildApp(options: { clientOrigin?: string; engine?: GameEn
       if (!parsed.success || !session) return ack(fail(new GameError("INVALID_PAYLOAD", "Confirmación inválida")));
       try { ack({ ok: true, data: engine.setReady(parsed.data.code, session.playerId, parsed.data.ready) }); } catch (error) { ack(fail(error)); }
     });
+    socket.on("game:configure", (raw, ack) => {
+      const parsed = clientSchemas["game:configure"].safeParse(raw);
+      if (!parsed.success || !session) return ack(fail(new GameError("INVALID_PAYLOAD", "Dificultad inválida")));
+      try { ack({ ok: true, data: engine.configureGame(parsed.data.code, session.playerId, parsed.data.difficulty) }); } catch (error) { ack(fail(error)); }
+    });
     socket.on("game:return-to-lobby", (raw, ack) => {
       const parsed = clientSchemas["game:return-to-lobby"].safeParse(raw);
       if (!parsed.success || !session) return ack(fail(new GameError("INVALID_PAYLOAD", "Solicitud inválida")));
@@ -155,6 +160,9 @@ export async function buildApp(options: { clientOrigin?: string; engine?: GameEn
       if (!parsed.success || !session) return ack(fail(new GameError("INVALID_PAYLOAD", "Movimiento inválido")));
       try { ack({ ok: true, data: { placed: engine.releasePuzzlePiece(parsed.data.code, session.playerId, parsed.data.pieceId, parsed.data.targetSlot) } }); } catch (error) { ack(fail(error)); }
     });
+    socket.on("story:add", (raw, ack) => { const parsed = clientSchemas["story:add"].safeParse(raw); if (!parsed.success || !session) return ack(fail(new GameError("INVALID_PAYLOAD", "Fragmento inválido"))); try { engine.addStoryEntry(parsed.data.code, session.playerId, parsed.data.text); ack({ ok: true, data: { accepted: true } }); } catch (error) { ack(fail(error)); } });
+    socket.on("maze:move", (raw, ack) => { const parsed = clientSchemas["maze:move"].safeParse(raw); if (!parsed.success || !session) return ack(fail(new GameError("INVALID_PAYLOAD", "Movimiento inválido"))); try { engine.moveMaze(parsed.data.code, session.playerId, parsed.data.direction); ack({ ok: true, data: { accepted: true } }); } catch (error) { ack(fail(error)); } });
+    socket.on("detective:action", (raw, ack) => { const parsed = clientSchemas["detective:action"].safeParse(raw); if (!parsed.success || !session) return ack(fail(new GameError("INVALID_PAYLOAD", "Acción inválida"))); try { engine.detectiveAction(parsed.data.code, session.playerId, parsed.data.actionId); ack({ ok: true, data: { accepted: true } }); } catch (error) { ack(fail(error)); } });
     socket.on("audio:status", (raw, ack) => {
       const parsed = clientSchemas["audio:status"].safeParse(raw);
       if (!parsed.success || !session || parsed.data.code !== session.code) return ack(fail(new GameError("INVALID_PAYLOAD", "Estado de audio inválido")));

@@ -198,4 +198,29 @@ describe("GameEngine", () => {
     expect(room?.players).toHaveLength(1); expect(room?.players[0].id).toBe(sessions[1].playerId); expect(room?.players[0].position).toBe(1);
     expect(() => engine.rejoinRoom(code, sessions[0].sessionToken, "socket-new")).toThrowError(expect.objectContaining({ code: "INVALID_SESSION" }));
   });
+
+  it("configura rompecabezas de 3x3, 4x4 y 5x5", () => {
+    const { engine, sessions, code } = roomWithPlayers();
+    for (const [difficulty, pieces] of [["easy", 9], ["medium", 16], ["hard", 25]] as const) {
+      engine.configureGame(code, sessions[0].playerId, difficulty); engine.proposeGame(code, sessions[0].playerId, "shared-puzzle"); sessions.forEach((s) => engine.setReady(code, s.playerId, true));
+      expect(Object.keys(engine.startSelectedGame(code, sessions[0].playerId).puzzleGame!.pieces)).toHaveLength(pieces); engine.returnToLobby(code, sessions[0].playerId);
+    }
+  });
+
+  it("sincroniza turnos de Historia compartida", () => {
+    const { engine, sessions, code } = roomWithPlayers(); engine.proposeGame(code, sessions[0].playerId, "shared-story"); sessions.forEach((s) => engine.setReady(code, s.playerId, true));
+    let room = engine.startSelectedGame(code, sessions[0].playerId); const turn = room.storyGame!.turnPlayerId; engine.addStoryEntry(code, turn, "Entonces apareció una carta bajo la puerta."); room = engine.getRoom(code);
+    expect(room.storyGame?.entries).toHaveLength(2); expect(room.storyGame?.turnPlayerId).not.toBe(turn);
+  });
+
+  it("mueve el laberinto en el servidor y conserva el progreso", () => {
+    const { engine, sessions, code } = roomWithPlayers(); engine.proposeGame(code, sessions[0].playerId, "maze"); sessions.forEach((s) => engine.setReady(code, s.playerId, true)); engine.startSelectedGame(code, sessions[0].playerId);
+    engine.moveMaze(code, sessions[1].playerId, "right"); expect(engine.getRoom(code).mazeGame).toMatchObject({ player: { row: 0, column: 1 }, moves: 1 });
+  });
+
+  it("avanza y registra un caso de detectives por niveles", () => {
+    const { engine, sessions, code } = roomWithPlayers(); engine.proposeGame(code, sessions[0].playerId, "detectives"); sessions.forEach((s) => engine.setReady(code, s.playerId, true)); let room = engine.startSelectedGame(code, sessions[0].playerId);
+    engine.detectiveAction(code, sessions[1].playerId, room.detectiveGame!.availableActions[0]!.id); room = engine.getRoom(code);
+    expect(room.detectiveGame?.level).toBe(2); expect(room.detectiveGame?.clues).toHaveLength(1); expect(room.detectiveGame?.journal.length).toBeGreaterThan(1);
+  });
 });

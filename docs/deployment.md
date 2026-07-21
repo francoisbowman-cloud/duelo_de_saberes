@@ -12,6 +12,8 @@ Despliegue actual: `https://duelo-api-production.up.railway.app`. El mismo servi
 
 Railway proporciona `PORT`; no lo fijes manualmente. Mantén una sola réplica hasta incorporar Redis Adapter y locks distribuidos.
 
+Para que los casos de Detectives sobrevivan reinicios durante una semana, monta un volumen Railway en `/data` y configura `DETECTIVE_STATE_FILE=/data/detective-rooms.json`. Sin volumen, el progreso dura mientras la instancia permanezca activa, pero no durante un redespliegue.
+
 ## Netlify: frontend
 
 1. Importa el mismo repositorio.

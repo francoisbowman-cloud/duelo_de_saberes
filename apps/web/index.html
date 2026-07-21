@@ -17,6 +17,7 @@
     <header class="topbar">
       <a class="brand" href="./"><span class="brand-mark">D</span><span>Duelo de <strong>Saberes</strong></span></a>
       <div class="connection"><span id="connectionDot"></span><span id="connectionText">Conectando...</span></div>
+      <label class="theme-picker">Tema <select id="themeSelect"><option value="midnight">Medianoche</option><option value="aurora">Aurora</option><option value="ember">Brasas</option><option value="ocean">Océano</option></select></label>
     </header>
 
     <section id="entryView" class="entry-layout">
@@ -59,9 +60,13 @@
           <div class="game-grid">
             <button class="game-card" data-game="trivia"><strong>Duelo de Saberes</strong><span>Trivia competitiva · 2–4 jugadores · 10–15 min</span><small>Turnos, robos y datos curiosos</small></button>
             <button class="game-card" data-game="riddles"><strong>Acertijos compartidos</strong><span>Cooperativo · 2–4 jugadores · 10 min</span><small>Debatan, pidan pistas y resuelvan juntos</small></button>
-            <button class="game-card" data-game="word-infiltrator"><strong>Palabra infiltrada</strong><span>Deducción para parejas · 2 jugadores · 5–10 min</span><small>Detecten si recibieron palabras diferentes</small></button>
+            <button class="game-card" data-game="word-infiltrator"><strong>Palabra infiltrada</strong><span>Deducción para parejas · 2 jugadores · 5–10 min</span><small>Den pistas y descubran si sus conceptos coinciden</small></button>
             <button class="game-card" data-game="shared-puzzle"><strong>Rompecabezas compartido</strong><span>Cooperativo · 2–4 jugadores · 5–15 min</span><small>Construyan una imagen entre todos</small></button>
+            <button class="game-card" data-game="shared-story"><strong>Historia compartida</strong><span>Creativo · 2–4 jugadores · 10–20 min</span><small>Escriban por turnos una historia impredecible</small></button>
+            <button class="game-card" data-game="maze"><strong>Laberinto</strong><span>Cooperativo · 2–4 jugadores · 5–15 min</span><small>Decidan juntos cada movimiento hacia la salida</small></button>
+            <button class="game-card feature-card" data-game="detectives"><strong>Detectives</strong><span>Misterio por niveles · 2–4 jugadores · hasta 7 días</span><small>Investiguen un caso y retomen donde quedaron</small></button>
           </div>
+          <div class="difficulty-picker"><span>Complejidad</span><button data-difficulty="easy">Fácil</button><button data-difficulty="medium">Media</button><button data-difficulty="hard">Difícil</button></div>
           <p id="selectionStatus" class="selection-status">Selecciona un juego para proponerlo a la sala.</p>
         </section>
         <article id="questionCard" class="question-card hidden">
@@ -98,6 +103,9 @@
           <label class="reference-toggle"><input id="showReference" type="checkbox"> Mostrar imagen de referencia</label>
           <img id="puzzleReference" class="puzzle-reference hidden" alt="Imagen completa del rompecabezas">
         </article>
+        <article id="storyCard" class="question-card hidden"><p id="storyStatus"></p><div id="storyEntries" class="story-entries"></div><form id="storyForm" class="word-form"><textarea id="storyText" maxlength="280" placeholder="Continúa la historia..."></textarea><button class="button primary">Añadir fragmento</button></form></article>
+        <article id="mazeCard" class="question-card hidden"><div class="puzzle-toolbar"><p>Encuentren la salida entre todos.</p><strong id="mazeMoves">0 movimientos</strong></div><div id="mazeBoard" class="maze-board"></div><div class="maze-controls"><button data-move="up">↑</button><span><button data-move="left">←</button><button data-move="down">↓</button><button data-move="right">→</button></span></div></article>
+        <article id="detectiveCard" class="question-card detective-card hidden"><p id="detectiveLevel"></p><h3 id="detectiveTitle"></h3><p id="detectiveSynopsis"></p><div id="detectiveClues" class="detective-clues"></div><div id="detectiveActions" class="choice-controls"></div><details><summary>Bitácora del caso</summary><ol id="detectiveJournal"></ol></details></article>
         <button id="returnLobbyButton" class="button secondary hidden">Volver a los juegos</button>
         <p id="arenaError" class="error" role="alert"></p>
       </div>

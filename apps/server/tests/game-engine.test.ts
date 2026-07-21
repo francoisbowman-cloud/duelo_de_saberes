@@ -202,9 +202,19 @@ describe("GameEngine", () => {
   it("configura rompecabezas de 3x3, 4x4 y 5x5", () => {
     const { engine, sessions, code } = roomWithPlayers();
     for (const [difficulty, pieces] of [["easy", 9], ["medium", 16], ["hard", 25]] as const) {
-      engine.configureGame(code, sessions[0].playerId, difficulty); engine.proposeGame(code, sessions[0].playerId, "shared-puzzle"); sessions.forEach((s) => engine.setReady(code, s.playerId, true));
+      engine.configureGame(code, sessions[0].playerId, { difficulty }); engine.proposeGame(code, sessions[0].playerId, "shared-puzzle"); sessions.forEach((s) => engine.setReady(code, s.playerId, true));
       expect(Object.keys(engine.startSelectedGame(code, sessions[0].playerId).puzzleGame!.pieces)).toHaveLength(pieces); engine.returnToLobby(code, sessions[0].playerId);
     }
+  });
+
+  it("configura la cantidad de personas y exige que estén presentes", () => {
+    const { engine, sessions, code } = roomWithPlayers(); engine.configureGame(code, sessions[0].playerId, { desiredPlayers: 3 }); engine.proposeGame(code, sessions[0].playerId, "trivia"); sessions.forEach((s) => engine.setReady(code, s.playerId, true));
+    expect(engine.getRoom(code).gameConfig.desiredPlayers).toBe(3); expect(() => engine.startSelectedGame(code, sessions[0].playerId)).toThrowError(expect.objectContaining({ code: "PLAYER_COUNT_MISMATCH" }));
+  });
+
+  it("permite Palabra infiltrada con tres personas", () => {
+    const { engine, sessions, code } = roomWithPlayers(3); engine.configureGame(code, sessions[0].playerId, { desiredPlayers: 3 }); engine.proposeGame(code, sessions[0].playerId, "word-infiltrator"); sessions.forEach((s) => engine.setReady(code, s.playerId, true));
+    const room = engine.startSelectedGame(code, sessions[0].playerId); expect(room.wordGame?.phase).toBe("clue_round"); expect(sessions.map((s) => engine.getWordPrivateState(code, s.playerId).word)).toHaveLength(3);
   });
 
   it("sincroniza turnos de Historia compartida", () => {

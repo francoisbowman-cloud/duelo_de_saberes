@@ -53,21 +53,24 @@ async function boot() {
   const savedTheme = localStorage.getItem("duelo:theme") || "midnight"; document.body.dataset.theme = savedTheme; $("themeSelect").value = savedTheme;
   $("themeSelect").addEventListener("change", () => { document.body.dataset.theme = $("themeSelect").value; localStorage.setItem("duelo:theme", $("themeSelect").value); });
   document.querySelectorAll("[data-difficulty]").forEach((button) => button.addEventListener("click", () => socket.emit("game:configure", { code: room.code, difficulty: button.dataset.difficulty }, ackHandler("arenaError"))));
+  document.querySelectorAll("[data-players]").forEach((button) => button.addEventListener("click", () => socket.emit("game:configure", { code: room.code, desiredPlayers: Number(button.dataset.players) }, ackHandler("arenaError"))));
   $("storyForm").addEventListener("submit", (event) => { event.preventDefault(); socket.emit("story:add", { code: room.code, text: $("storyText").value }, ackHandler("arenaError", () => { $("storyText").value = ""; })); });
   document.querySelectorAll("[data-move]").forEach((button) => button.addEventListener("click", () => socket.emit("maze:move", { code: room.code, direction: button.dataset.move }, ackHandler("arenaError"))));
 
   function submitAnswer(answer) { if (!room?.game) return; socket.emit("game:submit-answer", { code: room.code, answer, eventSequence: room.game.eventSequence }, ackHandler("arenaError", disableAnswers)); }
   function renderRoom() {
     if (!room) return;
-    $("roomLabel").textContent = room.code; $("playerCount").textContent = `${room.players.length} / ${room.maxPlayers}`;
+    $("roomLabel").textContent = room.code; $("playerCount").textContent = `${room.players.length} / ${room.gameConfig?.desiredPlayers || room.maxPlayers}`;
     $("roster").innerHTML = room.players.map((p) => `<div class="player"><span class="avatar">${escapeHtml(p.displayName[0].toUpperCase())}</span><span class="player-name">${escapeHtml(p.displayName)}${p.id === playerId ? " (tú)" : ""}<small class="player-state">${p.connected ? (p.audioEnabled ? (p.audioMuted ? "Audio silenciado" : "Hablando disponible") : "En línea") : "Reconectando"}</small></span><strong class="score">${p.score}</strong></div>`).join("");
     const inLobby = room.status === "lobby", connected = room.players.filter((p) => p.connected), ready = room.readyPlayerIds?.includes(playerId);
     $("gameSelector").classList.toggle("hidden", !inLobby); $("questionCard").classList.toggle("hidden", !room.game); $("riddleCard").classList.toggle("hidden", !room.riddleGame); $("wordGameCard").classList.toggle("hidden", !room.wordGame); $("puzzleCard").classList.toggle("hidden", !room.puzzleGame); $("storyCard").classList.toggle("hidden", !room.storyGame); $("mazeCard").classList.toggle("hidden", !room.mazeGame); $("detectiveCard").classList.toggle("hidden", !room.detectiveGame); $("returnLobbyButton").classList.toggle("hidden", inLobby);
     document.querySelectorAll("[data-game]").forEach((card) => card.classList.toggle("selected", card.dataset.game === room.selectedGameId));
     $("readyButton").classList.toggle("hidden", !inLobby || !room.selectedGameId); $("readyButton").textContent = ready ? "Ya estás listo" : "Estoy listo";
-    const allReady = connected.length >= 2 && connected.every((p) => room.readyPlayerIds?.includes(p.id)); $("startButton").classList.toggle("hidden", !inLobby || !allReady);
+    const allReady = connected.length === room.gameConfig?.desiredPlayers && connected.every((p) => room.readyPlayerIds?.includes(p.id)); $("startButton").classList.toggle("hidden", !inLobby || !allReady);
     const selectedName = ({ trivia: "Duelo de Saberes", riddles: "Acertijos compartidos", "word-infiltrator": "Palabra infiltrada", "shared-puzzle": "Rompecabezas compartido", "shared-story": "Historia compartida", maze: "Laberinto", detectives: "Detectives" })[room.selectedGameId] || "Duelo de Saberes";
     document.querySelectorAll("[data-difficulty]").forEach((button) => button.classList.toggle("selected", button.dataset.difficulty === room.gameConfig?.difficulty));
+    document.querySelectorAll("[data-players]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.players) === room.gameConfig?.desiredPlayers));
+    const difficultyName = room.gameConfig?.difficulty === "hard" ? "Difícil" : room.gameConfig?.difficulty === "medium" ? "Media" : "Fácil"; $("configurationSummary").textContent = `${room.gameConfig?.desiredPlayers || 2} personas · ${difficultyName}`;
     $("selectionStatus").textContent = room.selectedGameId ? `${selectedName} · ${room.readyPlayerIds.length}/${connected.length} listos` : "Selecciona un juego para proponerlo a la sala.";
     if (inLobby) { $("phaseLabel").textContent = "SALA DE JUEGOS"; $("categoryLabel").textContent = "Elijan la próxima partida"; $("timerValue").textContent = "--"; }
     if (room.game) { $("phaseLabel").textContent = room.game.phase === "steal" ? "ROBO DE TURNO" : room.game.phase.toUpperCase(); renderTurn(); startClock(); }

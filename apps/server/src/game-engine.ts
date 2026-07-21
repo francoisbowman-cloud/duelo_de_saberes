@@ -88,7 +88,7 @@ export class GameEngine {
     const room: InternalRoom = {
       id: randomUUID(), code, status: "lobby", createdAt: timestamp, updatedAt: timestamp,
       maxPlayers: 4, players: [], selectedGameId: null, proposedByPlayerId: null, readyPlayerIds: [],
-      game: null, riddleGame: null, wordGame: null, puzzleGame: null, storyGame: null, mazeGame: null, detectiveGame: null, gameConfig: { difficulty: "easy" }, questionOrder: shuffled(this.questionBank.map((question) => question.id)),
+      game: null, riddleGame: null, wordGame: null, puzzleGame: null, storyGame: null, mazeGame: null, detectiveGame: null, gameConfig: { difficulty: "easy", desiredPlayers: 2 }, questionOrder: shuffled(this.questionBank.map((question) => question.id)),
       riddleOrder: shuffled(riddles.map((riddle) => riddle.id)),
       wordPairOrder: shuffled(wordPairs.map((_, index) => index)), wordAssignments: {}, wordMeta: null, wordVotes: {}, wordGuesses: {}, puzzleLockTimers: {},
     };
@@ -147,10 +147,11 @@ export class GameEngine {
     const visible = publicRoom(room); this.emit({ type: "state", room: visible }); return visible;
   }
 
-  configureGame(code: string, playerId: string, difficulty: "easy" | "medium" | "hard") {
+  configureGame(code: string, playerId: string, config: { difficulty?: "easy" | "medium" | "hard"; desiredPlayers?: 2 | 3 | 4 }) {
     const room = this.requireMember(code, playerId);
     if (room.status !== "lobby") throw new GameError("INVALID_PHASE", "La dificultad se elige antes de comenzar");
-    room.gameConfig.difficulty = difficulty; room.readyPlayerIds = []; room.updatedAt = this.timestamp();
+    if (config.desiredPlayers && config.desiredPlayers < room.players.length) throw new GameError("TOO_MANY_PLAYERS", "Ya hay más personas en la sala que la cantidad elegida");
+    room.gameConfig = { ...room.gameConfig, ...config }; room.readyPlayerIds = []; room.updatedAt = this.timestamp();
     const visible = publicRoom(room); this.emit({ type: "state", room: visible }); return visible;
   }
 
@@ -165,7 +166,7 @@ export class GameEngine {
   startSelectedGame(code: string, playerId: string) {
     const room = this.requireMember(code, playerId);
     const connectedIds = room.players.filter((p) => p.connected).map((p) => p.id);
-    if (connectedIds.length < 2) throw new GameError("NOT_ENOUGH_PLAYERS", "Se necesitan al menos dos jugadores");
+    if (connectedIds.length !== room.gameConfig.desiredPlayers) throw new GameError("PLAYER_COUNT_MISMATCH", `Esta partida está configurada para ${room.gameConfig.desiredPlayers} personas`);
     if (!room.selectedGameId) throw new GameError("GAME_NOT_SELECTED", "Selecciona un juego");
     if (!connectedIds.every((id) => room.readyPlayerIds.includes(id))) throw new GameError("PLAYERS_NOT_READY", "Todos deben indicar que están listos");
     return this.startGame(code, playerId);
@@ -408,10 +409,9 @@ export class GameEngine {
 
   private startWordGame(room: InternalRoom) {
     const connected = room.players.filter((player) => player.connected);
-    if (connected.length !== 2) throw new GameError("WORD_GAME_REQUIRES_TWO", "Esta primera versión de Palabra infiltrada requiere exactamente dos jugadores");
     room.wordPairOrder = reshuffled(wordPairs.map((_, index) => index), room.wordPairOrder[0]);
     const pair = wordPairs[room.wordPairOrder[0]!]!; const same = Math.random() < 0.35;
-    room.wordAssignments = { [connected[0]!.id]: pair.first, [connected[1]!.id]: same ? pair.first : pair.second };
+    const infiltratorIndex = Math.floor(Math.random() * connected.length); room.wordAssignments = Object.fromEntries(connected.map((player, index) => [player.id, same || index !== infiltratorIndex ? pair.first : pair.second]));
     room.wordMeta = { category: pair.category, difficulty: pair.difficulty }; room.wordVotes = {}; room.wordGuesses = {};
     room.game = null; room.riddleGame = null; room.status = "playing";
     room.wordGame = { phase: "clue_round", roundIndex: 0, activePlayerId: connected[Math.floor(Math.random() * 2)]!.id, clues: [], submittedVotePlayerIds: [], submittedGuessPlayerIds: [], scores: Object.fromEntries(connected.map((p) => [p.id, 0])), eventSequence: 1 };
@@ -436,11 +436,11 @@ export class GameEngine {
 
   private revealWordGame(room: InternalRoom) {
     const state = this.requireWordGame(room); const players = room.players.filter((p) => p.connected);
-    const relation: "same" | "different" = room.wordAssignments[players[0]!.id] === room.wordAssignments[players[1]!.id] ? "same" : "different";
+    const relation: "same" | "different" = new Set(players.map((player) => room.wordAssignments[player.id])).size === 1 ? "same" : "different";
     for (const player of players) {
-      const other = players.find((candidate) => candidate.id !== player.id)!;
       if (room.wordVotes[player.id] === relation) state.scores[player.id] = (state.scores[player.id] ?? 0) + 2;
-      if (normalize(room.wordGuesses[player.id] ?? "") === normalize(room.wordAssignments[other.id]!)) state.scores[player.id] = (state.scores[player.id] ?? 0) + 3;
+      const otherWords = players.filter((candidate) => candidate.id !== player.id).map((candidate) => room.wordAssignments[candidate.id]!);
+      if (otherWords.some((word) => normalize(room.wordGuesses[player.id] ?? "") === normalize(word))) state.scores[player.id] = (state.scores[player.id] ?? 0) + 3;
     }
     state.phase = "reveal"; state.activePlayerId = null; state.relationType = relation; state.revealedWords = { ...room.wordAssignments }; state.eventSequence += 1;
     room.updatedAt = this.timestamp(); this.emitWord(room);

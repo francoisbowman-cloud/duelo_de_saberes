@@ -56,17 +56,17 @@
       <div class="stage">
         <div class="stage-top"><div><span id="phaseLabel">SALA DE ESPERA</span><h2 id="categoryLabel">La arena está lista</h2></div><div class="timer"><strong id="timerValue">--</strong><span>seg</span></div></div>
         <section id="gameSelector" class="game-selector">
-          <div class="selector-heading"><h2>¿Qué jugamos ahora?</h2><p>La sala y sus jugadores permanecen conectados al cambiar de juego.</p></div>
+          <div class="selector-heading"><h2>¿Qué jugamos ahora?</h2><p>Elijan una experiencia y preparen la mesa.</p></div>
           <div class="game-grid">
-            <button class="game-card" data-game="trivia"><strong>Duelo de Saberes</strong><span>Trivia competitiva · 2–4 jugadores · 10–15 min</span><small>Turnos, robos y datos curiosos</small></button>
-            <button class="game-card" data-game="riddles"><strong>Acertijos compartidos</strong><span>Cooperativo · 2–4 jugadores · 10 min</span><small>Debatan, pidan pistas y resuelvan juntos</small></button>
-            <button class="game-card" data-game="word-infiltrator"><strong>Palabra infiltrada</strong><span>Deducción para parejas · 2 jugadores · 5–10 min</span><small>Den pistas y descubran si sus conceptos coinciden</small></button>
-            <button class="game-card" data-game="shared-puzzle"><strong>Rompecabezas compartido</strong><span>Cooperativo · 2–4 jugadores · 5–15 min</span><small>Construyan una imagen entre todos</small></button>
-            <button class="game-card" data-game="shared-story"><strong>Historia compartida</strong><span>Creativo · 2–4 jugadores · 10–20 min</span><small>Escriban por turnos una historia impredecible</small></button>
-            <button class="game-card" data-game="maze"><strong>Laberinto</strong><span>Cooperativo · 2–4 jugadores · 5–15 min</span><small>Decidan juntos cada movimiento hacia la salida</small></button>
-            <button class="game-card feature-card" data-game="detectives"><strong>Detectives</strong><span>Misterio por niveles · 2–4 jugadores · hasta 7 días</span><small>Investiguen un caso y retomen donde quedaron</small></button>
+            <button class="game-card" data-game="trivia"><span class="game-icon" aria-hidden="true">⚔</span><strong>Duelo de Saberes</strong><span>Trivia competitiva · 10–15 min</span><small>Turnos, robos y datos curiosos</small></button>
+            <button class="game-card" data-game="riddles"><span class="game-icon" aria-hidden="true">✦</span><strong>Acertijos compartidos</strong><span>Misterio cooperativo · 10 min</span><small>Debatan, pidan pistas y resuelvan juntos</small></button>
+            <button class="game-card" data-game="word-infiltrator"><span class="game-icon" aria-hidden="true">⌁</span><strong>Palabra infiltrada</strong><span>Deducción y pistas · 5–10 min</span><small>Descubran si sus conceptos coinciden</small></button>
+            <button class="game-card" data-game="shared-puzzle"><span class="game-icon" aria-hidden="true">▦</span><strong>Rompecabezas compartido</strong><span>Construcción cooperativa · 5–15 min</span><small>Completen una imagen pieza por pieza</small></button>
+            <button class="game-card" data-game="shared-story"><span class="game-icon" aria-hidden="true">✎</span><strong>Historia compartida</strong><span>Creatividad por turnos · 10–20 min</span><small>Construyan una historia impredecible</small></button>
+            <button class="game-card" data-game="maze"><span class="game-icon" aria-hidden="true">⌗</span><strong>Laberinto</strong><span>Ruta cooperativa · 5–15 min</span><small>Decidan cada movimiento hacia la salida</small></button>
+            <button class="game-card feature-card" data-game="detectives"><span class="game-icon" aria-hidden="true">⌕</span><strong>Detectives</strong><span>Misterio por niveles · hasta 7 días</span><small>Investiguen un caso y retomen donde quedaron</small></button>
           </div>
-          <div class="difficulty-picker"><span>Complejidad</span><button data-difficulty="easy">Fácil</button><button data-difficulty="medium">Media</button><button data-difficulty="hard">Difícil</button></div>
+          <div class="game-settings"><div class="setting-group"><span>Personas</span><div class="segmented"><button data-players="2">2</button><button data-players="3">3</button><button data-players="4">4</button></div></div><div class="setting-group"><span>Complejidad</span><div class="segmented"><button data-difficulty="easy">Fácil</button><button data-difficulty="medium">Media</button><button data-difficulty="hard">Difícil</button></div></div><div class="setting-note"><strong id="configurationSummary">2 personas · Fácil</strong><small>Todos deben estar presentes y listos para comenzar.</small></div></div>
           <p id="selectionStatus" class="selection-status">Selecciona un juego para proponerlo a la sala.</p>
         </section>
         <article id="questionCard" class="question-card hidden">

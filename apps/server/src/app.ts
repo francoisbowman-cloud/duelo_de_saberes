@@ -114,7 +114,7 @@ export async function buildApp(options: { clientOrigin?: string; engine?: GameEn
     socket.on("game:configure", (raw, ack) => {
       const parsed = clientSchemas["game:configure"].safeParse(raw);
       if (!parsed.success || !session) return ack(fail(new GameError("INVALID_PAYLOAD", "Dificultad inválida")));
-      try { ack({ ok: true, data: engine.configureGame(parsed.data.code, session.playerId, parsed.data.difficulty) }); } catch (error) { ack(fail(error)); }
+      try { ack({ ok: true, data: engine.configureGame(parsed.data.code, session.playerId, parsed.data as { difficulty?: "easy" | "medium" | "hard"; desiredPlayers?: 2 | 3 | 4 }) }); } catch (error) { ack(fail(error)); }
     });
     socket.on("game:return-to-lobby", (raw, ack) => {
       const parsed = clientSchemas["game:return-to-lobby"].safeParse(raw);

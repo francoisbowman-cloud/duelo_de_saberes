@@ -13,7 +13,7 @@ export const clientSchemas = {
   "room:leave": z.object({ code: roomCodeSchema }),
   "game:start": z.object({ code: roomCodeSchema }),
   "game:propose": z.object({ code: roomCodeSchema, gameId: z.enum(["trivia", "riddles", "word-infiltrator", "shared-puzzle", "shared-story", "maze", "detectives"]) }),
-  "game:configure": z.object({ code: roomCodeSchema, difficulty: z.enum(["easy", "medium", "hard"]) }),
+  "game:configure": z.object({ code: roomCodeSchema, difficulty: z.enum(["easy", "medium", "hard"]).optional(), desiredPlayers: z.number().int().min(2).max(4).optional() }).refine((value) => value.difficulty !== undefined || value.desiredPlayers !== undefined),
   "game:ready": z.object({ code: roomCodeSchema, ready: z.boolean() }),
   "game:return-to-lobby": z.object({ code: roomCodeSchema }),
   "riddle:request-hint": z.object({ code: roomCodeSchema, eventSequence: z.number().int().nonnegative() }),
@@ -87,7 +87,7 @@ export type RoomState = {
   storyGame: StoryPublicState | null;
   mazeGame: MazePublicState | null;
   detectiveGame: DetectivePublicState | null;
-  gameConfig: { difficulty: "easy" | "medium" | "hard" };
+  gameConfig: { difficulty: "easy" | "medium" | "hard"; desiredPlayers: 2 | 3 | 4 };
 };
 
 export type GameId = "trivia" | "riddles" | "word-infiltrator" | "shared-puzzle" | "shared-story" | "maze" | "detectives";

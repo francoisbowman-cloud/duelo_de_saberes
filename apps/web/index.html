@@ -41,18 +41,64 @@
         <div class="room-heading"><span>Sala</span><strong id="roomLabel">------</strong><button id="copyButton" title="Copiar enlace">Copiar</button></div>
         <div class="roster-title"><span>Competidores</span><span id="playerCount">0 / 4</span></div>
         <div id="roster" class="roster"></div>
-        <button id="startButton" class="button primary">Comenzar duelo</button>
-        <p class="privacy-note">El audio en vivo se incorporará en la siguiente fase y nunca se almacenará.</p>
+        <button id="readyButton" class="button secondary hidden">Estoy listo</button>
+        <button id="startButton" class="button primary hidden">Comenzar juego</button>
+        <div class="audio-controls">
+          <div><strong>Audio en vivo</strong><span id="audioStatus">Desactivado</span></div>
+          <button id="audioButton" class="button secondary" type="button">Activar audio</button>
+          <button id="muteButton" class="button secondary hidden" type="button">Silenciar micrófono</button>
+        </div>
+        <button id="leaveRoomButton" class="button danger-button" type="button">Salir de la sala</button>
+        <p class="privacy-note">El audio se transmite directamente entre participantes. No se graba ni se almacena.</p>
+        <div id="remoteAudio" aria-live="polite"></div>
       </aside>
       <div class="stage">
         <div class="stage-top"><div><span id="phaseLabel">SALA DE ESPERA</span><h2 id="categoryLabel">La arena está lista</h2></div><div class="timer"><strong id="timerValue">--</strong><span>seg</span></div></div>
-        <article id="questionCard" class="question-card">
+        <section id="gameSelector" class="game-selector">
+          <div class="selector-heading"><h2>¿Qué jugamos ahora?</h2><p>La sala y sus jugadores permanecen conectados al cambiar de juego.</p></div>
+          <div class="game-grid">
+            <button class="game-card" data-game="trivia"><strong>Duelo de Saberes</strong><span>Trivia competitiva · 2–4 jugadores · 10–15 min</span><small>Turnos, robos y datos curiosos</small></button>
+            <button class="game-card" data-game="riddles"><strong>Acertijos compartidos</strong><span>Cooperativo · 2–4 jugadores · 10 min</span><small>Debatan, pidan pistas y resuelvan juntos</small></button>
+            <button class="game-card" data-game="word-infiltrator"><strong>Palabra infiltrada</strong><span>Deducción para parejas · 2 jugadores · 5–10 min</span><small>Detecten si recibieron palabras diferentes</small></button>
+            <button class="game-card" data-game="shared-puzzle"><strong>Rompecabezas compartido</strong><span>Cooperativo · 2–4 jugadores · 5–15 min</span><small>Construyan una imagen entre todos</small></button>
+          </div>
+          <p id="selectionStatus" class="selection-status">Selecciona un juego para proponerlo a la sala.</p>
+        </section>
+        <article id="questionCard" class="question-card hidden">
           <p id="statusText">Comparte el código. La partida comenzará cuando alguien pulse “Comenzar duelo”.</p>
-          <h3 id="questionText">Que gane quien más sabe.</h3>
+          <h3 id="questionText">¡Que comience el duelo!</h3>
           <div id="answers" class="answers"></div>
           <form id="wordForm" class="word-form hidden"><input id="wordAnswer" maxlength="120" placeholder="Escribe tu respuesta"><button class="button primary">Responder</button></form>
           <div id="reveal" class="reveal hidden"></div>
         </article>
+        <article id="riddleCard" class="question-card riddle-card hidden">
+          <p id="riddleStatus">Resuelvan el acertijo entre todos.</p>
+          <h3 id="riddleText"></h3>
+          <ol id="riddleHints" class="hint-list"></ol>
+          <div id="riddleAttempts" class="attempt-list"></div>
+          <form id="riddleForm" class="word-form"><input id="riddleAnswer" maxlength="160" placeholder="Escribe una propuesta"><button class="button primary">Probar respuesta</button></form>
+          <div class="riddle-actions"><button id="hintButton" class="button secondary">Pedir pista (-2)</button></div>
+          <div id="riddleReveal" class="reveal hidden"></div>
+        </article>
+        <article id="wordGameCard" class="question-card word-game-card hidden">
+          <p id="wordPhaseText">Da una pista sin revelar tu palabra.</p>
+          <div class="secret-word"><span>Tu palabra secreta</span><strong id="privateWord">••••••</strong><small id="wordMeta"></small></div>
+          <div id="wordClues" class="clue-board"></div>
+          <form id="wordClueForm" class="word-form hidden"><input id="wordClue" maxlength="50" placeholder="Escribe una pista corta"><button class="button primary">Enviar pista</button></form>
+          <div id="wordVoteControls" class="choice-controls hidden"><button class="button secondary" data-vote="same">Tenemos la misma palabra</button><button class="button secondary" data-vote="different">Tenemos palabras diferentes</button></div>
+          <form id="wordGuessForm" class="word-form hidden"><input id="wordGuess" maxlength="50" placeholder="¿Cuál es la palabra de la otra persona?"><button class="button primary">Adivinar</button></form>
+          <div id="wordReveal" class="reveal hidden"></div>
+        </article>
+        <article id="puzzleCard" class="question-card puzzle-card hidden">
+          <div class="puzzle-toolbar"><p id="puzzleStatus">Arrastren las piezas hasta su lugar.</p><strong id="puzzleProgress">0 / 9</strong></div>
+          <div id="puzzleWorkspace" class="puzzle-workspace">
+            <div id="puzzleBoard" class="puzzle-board" aria-label="Tablero del rompecabezas"></div>
+            <div id="puzzleTray" class="puzzle-tray" aria-label="Piezas disponibles"></div>
+          </div>
+          <label class="reference-toggle"><input id="showReference" type="checkbox"> Mostrar imagen de referencia</label>
+          <img id="puzzleReference" class="puzzle-reference hidden" alt="Imagen completa del rompecabezas">
+        </article>
+        <button id="returnLobbyButton" class="button secondary hidden">Volver a los juegos</button>
         <p id="arenaError" class="error" role="alert"></p>
       </div>
     </section>

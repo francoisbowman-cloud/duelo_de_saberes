@@ -12,6 +12,13 @@
   overflow-wrap: break-word;
 }
 
+button,
+input,
+.button,
+.game-card {
+  font-family: Inter, system-ui, sans-serif;
+}
+
 .brand,
 .intro h1,
 .promise > span,
@@ -20,10 +27,58 @@
 .score,
 .stage-top h2,
 .timer strong,
-.question-card h3 {
+.question-card h3,
+.selector-heading h2,
+.game-card strong {
   font-family: "Space Grotesk", Inter, sans-serif;
 }
 
 @media (max-width: 800px) {
   .entry-layout { grid-template-columns: 1fr; }
+  .game-grid { grid-template-columns: 1fr; }
 }
+
+.game-selector { padding: 1rem 0 2rem; }
+.selector-heading { margin-bottom: 1.25rem; }
+.selector-heading h2 { margin: 0 0 .35rem; font: 700 clamp(1.6rem,4vw,2.5rem) "Space Grotesk"; }
+.selector-heading p, .selection-status { color: var(--muted); }
+.game-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.game-card { min-height: 150px; padding: 1.25rem; text-align: left; color: inherit; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.12); border-radius: 18px; cursor: pointer; display: flex; flex-direction: column; gap: .55rem; transition: .18s; font: inherit; }
+.game-card:hover:not(.disabled), .game-card.selected { transform: translateY(-2px); border-color: var(--violet); background: rgba(139,108,255,.12); }
+.game-card strong { font: 700 1.15rem "Space Grotesk"; }
+.game-card span { color: #c7d2fe; }
+.game-card small { color: var(--muted); line-height: 1.45; }
+.game-card.disabled { opacity: .48; cursor: not-allowed; }
+.hint-list { padding-left: 1.4rem; color: #c7d2fe; }
+.attempt { padding: .6rem .75rem; margin: .4rem 0; border-radius: 10px; background: rgba(255,255,255,.05); }
+.attempt.wrong { border-left: 3px solid var(--danger); }
+.riddle-actions { margin-top: .75rem; display: flex; gap: .75rem; }
+.secret-word { margin: 1.25rem 0; padding: 1.25rem; border: 1px solid rgba(139,108,255,.45); border-radius: 16px; background: rgba(139,108,255,.08); display: grid; gap: .35rem; }
+.secret-word span, .secret-word small { color: var(--muted); }
+.secret-word strong { font: 700 clamp(1.8rem,5vw,3rem) "Space Grotesk",sans-serif; letter-spacing: .02em; }
+.clue-board { display: grid; gap: .6rem; margin: 1rem 0; }
+.clue-entry { padding: .8rem 1rem; border-radius: 12px; background: rgba(255,255,255,.05); }
+.choice-controls { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.choice-controls .button { margin-top: 0; }
+.puzzle-card { padding: clamp(20px,3vw,36px); }
+.puzzle-toolbar { display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+.puzzle-toolbar p { margin:0; color:var(--muted); }
+.puzzle-workspace { position:relative; min-height:780px; margin-top:1rem; touch-action:none; }
+.puzzle-board { position:absolute; top:0; left:50%; transform:translateX(-50%); width:min(72%,520px); aspect-ratio:1; border:1px solid var(--line); border-radius:16px; background-color:#090c15; background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px); background-size:33.333% 33.333%; overflow:hidden; }
+.puzzle-tray { position:absolute; left:0; right:0; bottom:0; height:250px; border:1px dashed var(--line); border-radius:16px; background:rgba(255,255,255,.025); }
+.puzzle-piece { position:absolute; z-index:2; border:1px solid rgba(255,255,255,.35); border-radius:7px; background-repeat:no-repeat; cursor:grab; touch-action:none; box-shadow:0 8px 20px rgba(0,0,0,.35); transition:box-shadow .12s ease; }
+.puzzle-piece.controlled { cursor:grabbing; box-shadow:0 0 0 3px var(--cyan),0 14px 30px rgba(0,0,0,.5); z-index:4; }
+.puzzle-piece.locked-other { box-shadow:0 0 0 3px var(--violet); cursor:not-allowed; }
+.puzzle-piece.placed { border-radius:0; border-color:transparent; box-shadow:none; cursor:default; }
+.reference-toggle { display:flex; align-items:center; gap:.6rem; color:var(--muted); font-size:.85rem; }
+.reference-toggle input { width:auto; margin:0; }
+.puzzle-reference { display:block; width:130px; aspect-ratio:1; object-fit:cover; margin-top:.75rem; border-radius:12px; border:1px solid var(--line); }
+.audio-controls { margin-top:1.25rem; padding-top:1.1rem; border-top:1px solid var(--line); }
+.audio-controls > div { display:flex; justify-content:space-between; align-items:center; gap:.5rem; font-size:.8rem; }
+.audio-controls span { color:var(--muted); }
+.audio-controls.active span { color:var(--cyan); }
+.danger-button { margin-top:.7rem; color:#ff9bb0; background:transparent; border:1px solid rgba(255,111,145,.42); }
+.danger-button:hover { background:rgba(255,111,145,.08); }
+#remoteAudio { width:0; height:0; overflow:hidden; }
+
+@media (max-width: 800px) { .game-grid, .choice-controls { grid-template-columns: 1fr; } .puzzle-workspace{min-height:660px}.puzzle-board{width:100%}.puzzle-tray{height:240px} }

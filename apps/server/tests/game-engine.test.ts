@@ -96,4 +96,106 @@ describe("GameEngine", () => {
     expect(displayNameSchema.parse("  <Ana>   María  ")).toBe("Ana María");
     expect(() => displayNameSchema.parse("<>")).toThrow();
   });
+
+  it("mantiene la sala al seleccionar, jugar y abandonar Acertijos", () => {
+    const { engine, sessions, code } = roomWithPlayers();
+    engine.proposeGame(code, sessions[0].playerId, "riddles");
+    engine.setReady(code, sessions[0].playerId, true);
+    engine.setReady(code, sessions[1].playerId, true);
+    const playing = engine.startSelectedGame(code, sessions[0].playerId);
+    expect(playing.selectedGameId).toBe("riddles");
+    expect(playing.riddleGame?.phase).toBe("solving");
+    const lobby = engine.returnToLobby(code, sessions[1].playerId);
+    expect(lobby.status).toBe("lobby");
+    expect(lobby.players).toHaveLength(2);
+    expect(lobby.riddleGame).toBeNull();
+  });
+
+  it("protege la solución y sincroniza pistas y respuestas", () => {
+    const { engine, sessions, code } = roomWithPlayers();
+    engine.proposeGame(code, sessions[0].playerId, "riddles");
+    sessions.forEach((session) => engine.setReady(code, session.playerId, true));
+    let room = engine.startSelectedGame(code, sessions[0].playerId);
+    expect(room.riddleGame?.solution).toBeUndefined();
+    engine.requestRiddleHint(code, sessions[1].playerId, room.riddleGame!.eventSequence);
+    room = engine.getRoom(code);
+    expect(room.riddleGame?.hints).toHaveLength(1);
+    const outcome = engine.submitRiddleAnswer(code, sessions[0].playerId, "respuesta imposible", room.riddleGame!.eventSequence);
+    expect(outcome.correct).toBe(false);
+    expect(outcome.room.riddleGame?.attempts).toHaveLength(1);
+    expect(outcome.room.riddleGame?.score).toBe(7);
+  });
+
+  it("vuelve a mezclar las preguntas al iniciar otra partida", () => {
+    const { engine, sessions, code } = roomWithPlayers();
+    engine.startGame(code, sessions[0].playerId);
+    const firstQuestion = engine.getPublicQuestion(code).id;
+    engine.returnToLobby(code, sessions[0].playerId);
+    engine.proposeGame(code, sessions[0].playerId, "trivia");
+    sessions.forEach((session) => engine.setReady(code, session.playerId, true));
+    engine.startSelectedGame(code, sessions[0].playerId);
+    expect(engine.getPublicQuestion(code).id).not.toBe(firstQuestion);
+  });
+
+  it("mantiene privadas las palabras y completa la deducción para dos jugadores", () => {
+    const { engine, sessions, code } = roomWithPlayers();
+    engine.proposeGame(code, sessions[0].playerId, "word-infiltrator");
+    sessions.forEach((session) => engine.setReady(code, session.playerId, true));
+    let room = engine.startSelectedGame(code, sessions[0].playerId);
+    const privateA = engine.getWordPrivateState(code, sessions[0].playerId);
+    const privateB = engine.getWordPrivateState(code, sessions[1].playerId);
+    expect(JSON.stringify(room)).not.toContain(privateA.word);
+    expect(JSON.stringify(room)).not.toContain(privateB.word);
+    const first = room.wordGame!.activePlayerId!;
+    const second = sessions.find((session) => session.playerId !== first)!.playerId;
+    engine.submitWordClue(code, first, "pista inicial", room.wordGame!.eventSequence);
+    room = engine.getRoom(code);
+    engine.submitWordClue(code, second, "otra pista", room.wordGame!.eventSequence);
+    room = engine.getRoom(code);
+    expect(room.wordGame?.phase).toBe("voting");
+    const relation = privateA.word === privateB.word ? "same" : "different";
+    engine.submitWordVote(code, sessions[0].playerId, relation, room.wordGame!.eventSequence);
+    room = engine.getRoom(code);
+    engine.submitWordVote(code, sessions[1].playerId, relation, room.wordGame!.eventSequence);
+    room = engine.getRoom(code);
+    engine.submitWordGuess(code, sessions[0].playerId, privateB.word, room.wordGame!.eventSequence);
+    room = engine.getRoom(code);
+    engine.submitWordGuess(code, sessions[1].playerId, privateA.word, room.wordGame!.eventSequence);
+    room = engine.getRoom(code);
+    expect(room.wordGame?.phase).toBe("reveal");
+    expect(room.wordGame?.scores[sessions[0].playerId]).toBe(5);
+  });
+
+  it("concede un solo bloqueo de pieza y lo libera al desconectarse", () => {
+    const { engine, sessions, code } = roomWithPlayers();
+    engine.proposeGame(code, sessions[0].playerId, "shared-puzzle"); sessions.forEach((session) => engine.setReady(code, session.playerId, true));
+    const room = engine.startSelectedGame(code, sessions[0].playerId); const pieceId = Object.keys(room.puzzleGame!.pieces)[0]!;
+    expect(engine.requestPuzzleLock(code, sessions[0].playerId, pieceId)).toBe(true);
+    expect(engine.requestPuzzleLock(code, sessions[1].playerId, pieceId)).toBe(false);
+    engine.disconnect("socket-1");
+    expect(engine.getRoom(code).puzzleGame?.pieces[pieceId]?.controlledByPlayerId).toBeNull();
+  });
+
+  it("valida el encaje y finaliza el rompecabezas en el servidor", () => {
+    const { engine, sessions, code } = roomWithPlayers();
+    engine.proposeGame(code, sessions[0].playerId, "shared-puzzle"); sessions.forEach((session) => engine.setReady(code, session.playerId, true));
+    let room = engine.startSelectedGame(code, sessions[0].playerId);
+    for (const piece of Object.values(room.puzzleGame!.pieces)) { engine.requestPuzzleLock(code, sessions[0].playerId, piece.id); expect(engine.releasePuzzlePiece(code, sessions[0].playerId, piece.id, piece.correctSlot)).toBe(true); }
+    room = engine.getRoom(code); expect(room.puzzleGame?.phase).toBe("finished"); expect(room.status).toBe("results"); expect(room.puzzleGame?.completedPieceIds).toHaveLength(9);
+  });
+
+  it("publica el estado de audio sin almacenar contenido", () => {
+    const { engine, sessions, code } = roomWithPlayers();
+    let room = engine.updateAudioStatus(code, sessions[0].playerId, true, false);
+    expect(room.players[0].audioEnabled).toBe(true); expect(room.players[0].audioMuted).toBe(false);
+    room = engine.updateAudioStatus(code, sessions[0].playerId, true, true);
+    expect(room.players[0].audioMuted).toBe(true);
+  });
+
+  it("permite salir de la sala y elimina al jugador del roster", () => {
+    const { engine, sessions, code } = roomWithPlayers();
+    const room = engine.leaveRoom(code, sessions[0].playerId);
+    expect(room?.players).toHaveLength(1); expect(room?.players[0].id).toBe(sessions[1].playerId); expect(room?.players[0].position).toBe(1);
+    expect(() => engine.rejoinRoom(code, sessions[0].sessionToken, "socket-new")).toThrowError(expect.objectContaining({ code: "INVALID_SESSION" }));
+  });
 });

@@ -1,5 +1,11 @@
 # Duelo de Saberes
 
+Sala privada de juegos sociales para 2–4 personas. Incluye la trivia autoritativa original, **Acertijos compartidos**, **Palabra infiltrada** y **Rompecabezas compartido** con arrastre sincronizado. Los jugadores pueden terminar una partida y volver al selector sin perder la sala ni el roster. Cada nueva partida mezcla nuevamente su contenido.
+
+La sala ofrece audio WebRTC opcional, controles de silencio y salida explícita. El audio viaja directamente entre participantes y no se graba ni se almacena.
+
+Para añadir un juego nuevo, consulte `docs/game-module-contract.md`; el protocolo de selección y acciones está en `docs/realtime-protocol.md`.
+
 Arena social de trivia multijugador en español. Esta rama inicia la migración progresiva desde el prototipo PeerJS con anfitrión hacia un backend autoritativo en Railway y un frontend estático en Netlify.
 
 ## Jugar ahora

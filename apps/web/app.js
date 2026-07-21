@@ -1,70 +1,120 @@
-const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
-const isNetlify = location.hostname === "duelo-de-saberes.netlify.app";
+const isLocal = ["localhost", "127.0.0.1"].includes(location.hostname);
 const requestedServer = new URLSearchParams(location.search).get("server");
 if (requestedServer) localStorage.setItem("duelo:serverUrl", requestedServer.replace(/\/$/, ""));
-const defaultServer = isLocal ? "http://127.0.0.1:3000" : isNetlify ? "https://duelo-api-production.up.railway.app" : location.origin;
+const defaultServer = isLocal ? location.origin : location.hostname === "duelo-de-saberes.netlify.app" ? "https://duelo-api-production.up.railway.app" : location.origin;
 const SERVER_URL = window.DUELO_SERVER_URL || requestedServer || localStorage.getItem("duelo:serverUrl") || defaultServer;
 
-function loadSocketClient() {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = `${SERVER_URL}/socket.io/socket.io.js`;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error("No se pudo cargar el cliente de la arena"));
-    document.head.append(script);
-  });
-}
+function loadSocketClient() { return new Promise((resolve, reject) => { const script = document.createElement("script"); script.src = `${SERVER_URL}/socket.io/socket.io.js`; script.onload = resolve; script.onerror = () => reject(new Error("No se pudo cargar el cliente de la sala")); document.head.append(script); }); }
 
 async function boot() {
-await loadSocketClient();
-const socket = io(SERVER_URL, { transports: ["websocket", "polling"], reconnection: true });
-const $ = (id) => document.getElementById(id);
-let room = null, playerId = null, question = null, clock = null;
-const saved = JSON.parse(localStorage.getItem("duelo:session") || "null");
+  await loadSocketClient();
+  const socket = io(SERVER_URL, { transports: ["websocket", "polling"], reconnection: true });
+  const $ = (id) => document.getElementById(id);
+  let room = null, playerId = null, question = null, riddle = null, wordState = null, wordPrivate = null, puzzleState = null, activeDrag = null, lastPuzzleMove = 0, clock = null;
+  let localStream = null, audioMuted = false, saved = JSON.parse(localStorage.getItem("duelo:session") || "null");
+  const audioPeers = new Map();
+  const escapeHtml = (value) => { const node = document.createElement("div"); node.textContent = String(value); return node.innerHTML; };
+  const showError = (message, target = "arenaError") => { $(target).textContent = message || ""; };
+  const ackHandler = (target, done = () => {}) => (result) => { if (!result?.ok) return showError(result?.error?.message || "No fue posible completar la acción", target); showError("", target); done(result.data); };
+  const persist = (session) => { localStorage.setItem("duelo:session", JSON.stringify({ code: session.room.code, token: session.sessionToken })); localStorage.setItem("duelo:lastName", $("displayName").value); };
+  const enterArena = (session) => { room = session.room; playerId = session.playerId; persist(session); $("entryView").classList.add("hidden"); $("arenaView").classList.remove("hidden"); history.replaceState(null, "", `#room=${room.code}`); renderRoom(); };
+  const setConnection = (online) => { $("connectionText").textContent = online ? "Servidor conectado" : "Sin conexión"; $("connectionText").parentElement.classList.toggle("online", online); };
 
-function setConnection(online) { $("connectionText").textContent = online ? "Servidor conectado" : "Sin conexión"; $("connectionText").parentElement.classList.toggle("online", online); }
-function showError(message, target = "arenaError") { $(target).textContent = message || ""; }
-function persist(session) { localStorage.setItem("duelo:session", JSON.stringify({ code: session.room.code, token: session.sessionToken })); localStorage.setItem("duelo:lastName", $("displayName").value); }
-function enterArena(session) { room = session.room; playerId = session.playerId; persist(session); $("entryView").classList.add("hidden"); $("arenaView").classList.remove("hidden"); history.replaceState(null, "", `#room=${room.code}`); renderRoom(); }
-function ackHandler(target, done) { return (result) => { if (!result?.ok) return showError(result?.error?.message || "No fue posible completar la acción", target); showError("", target); done(result.data); }; }
+  socket.on("connect", () => { setConnection(true); $("reconnectBanner").classList.add("hidden"); if (saved && !room) socket.emit("room:rejoin", { code: saved.code, sessionToken: saved.token }, ackHandler("entryError", enterArena)); });
+  socket.on("disconnect", () => { setConnection(false); if (room) $("reconnectBanner").classList.remove("hidden"); });
+  socket.on("room:state", (state) => { room = state; renderRoom(); if (localStream) syncAudioPeers(); });
+  socket.on("game:question", (payload) => { question = payload; renderQuestion(); });
+  socket.on("game:reveal", ({ correct, correctAnswer, fact }) => { $("reveal").classList.remove("hidden"); $("reveal").innerHTML = `<strong>${correct ? "Respuesta correcta" : "Turno cerrado"}.</strong> La respuesta es ${escapeHtml(correctAnswer)}.<br>${escapeHtml(fact)}`; disableAnswers(); });
+  socket.on("game:finished", (state) => { room = state; renderRoom(); $("returnLobbyButton").classList.remove("hidden"); });
+  socket.on("riddle:state", (state) => { riddle = state; if (room) room.riddleGame = state; renderRiddle(); });
+  socket.on("word:state", (state) => { wordState = state; if (room) room.wordGame = state; renderWordGame(); });
+  socket.on("word:private-state", (state) => { wordPrivate = state; renderWordGame(); });
+  socket.on("puzzle:state", (state) => { puzzleState = state; if (room) room.puzzleGame = state; renderPuzzle(); });
+  socket.on("audio:signal", async ({ fromPlayerId, kind, data }) => { try { const peer = ensureAudioPeer(fromPlayerId); if (kind === "offer") { await peer.setRemoteDescription(data); const answer = await peer.createAnswer(); await peer.setLocalDescription(answer); socket.emit("audio:signal", { code: room.code, targetPlayerId: fromPlayerId, kind: "answer", data: peer.localDescription }); } else if (kind === "answer") await peer.setRemoteDescription(data); else if (data) await peer.addIceCandidate(data); } catch (error) { showError(`No se pudo conectar el audio: ${error.message}`); } });
+  socket.on("session:replaced", () => { localStorage.removeItem("duelo:session"); socket.disconnect(); showError("Esta sesión se abrió en otra pestaña. Recarga para volver a entrar."); disableAnswers(); });
 
-socket.on("connect", () => { setConnection(true); $("reconnectBanner").classList.add("hidden"); if (saved && !room) socket.emit("room:rejoin", { code: saved.code, sessionToken: saved.token }, ackHandler("entryError", enterArena)); });
-socket.on("disconnect", () => { setConnection(false); if (room) $("reconnectBanner").classList.remove("hidden"); });
-socket.on("room:state", (state) => { room = state; renderRoom(); });
-socket.on("game:question", (payload) => { question = payload; renderQuestion(); });
-socket.on("game:reveal", ({ correct, correctAnswer, fact }) => { $("reveal").classList.remove("hidden"); $("reveal").innerHTML = `<strong>${correct ? "Respuesta correcta" : "Turno cerrado"}.</strong> La respuesta es ${escapeHtml(correctAnswer)}.<br>${escapeHtml(fact)}`; disableAnswers(); });
-socket.on("game:finished", (state) => { room = state; renderRoom(); $("phaseLabel").textContent = "PARTIDA FINALIZADA"; $("categoryLabel").textContent = "Marcador final"; $("questionText").textContent = [...room.players].sort((a, b) => b.score - a.score).map((player, index) => `${index + 1}. ${player.displayName}: ${player.score}`).join(" · "); $("statusText").textContent = "Gracias por jugar. Crea otra sala para una revancha."; $("answers").innerHTML = ""; $("wordForm").classList.add("hidden"); });
-socket.on("session:replaced", () => { localStorage.removeItem("duelo:session"); socket.disconnect(); showError("Esta sesión se abrió en otra pestaña. Recarga para volver a entrar."); disableAnswers(); });
+  $("entryForm").addEventListener("submit", (event) => { event.preventDefault(); const code = $("roomCode").value.trim().toUpperCase(); if (!code) return showError("Escribe un código o crea una sala nueva.", "entryError"); socket.emit("room:join", { code, displayName: $("displayName").value }, ackHandler("entryError", enterArena)); });
+  $("createButton").addEventListener("click", () => socket.emit("room:create", { displayName: $("displayName").value }, ackHandler("entryError", enterArena)));
+  $("startButton").addEventListener("click", () => socket.emit("game:start", { code: room.code }, ackHandler("arenaError")));
+  $("readyButton").addEventListener("click", () => socket.emit("game:ready", { code: room.code, ready: !room.readyPlayerIds.includes(playerId) }, ackHandler("arenaError")));
+  $("returnLobbyButton").addEventListener("click", () => socket.emit("game:return-to-lobby", { code: room.code }, ackHandler("arenaError", () => { question = null; riddle = null; wordState = null; wordPrivate = null; puzzleState = null; activeDrag = null; })));
+  document.querySelectorAll("[data-game]").forEach((card) => card.addEventListener("click", () => socket.emit("game:propose", { code: room.code, gameId: card.dataset.game }, ackHandler("arenaError"))));
+  $("copyButton").addEventListener("click", async () => { const query = isLocal ? "" : `?server=${encodeURIComponent(SERVER_URL)}`; await navigator.clipboard.writeText(`${location.origin}${location.pathname}${query}#room=${room.code}`); $("copyButton").textContent = "Copiado"; setTimeout(() => $("copyButton").textContent = "Copiar", 1300); });
+  $("wordForm").addEventListener("submit", (event) => { event.preventDefault(); submitAnswer($("wordAnswer").value); });
+  $("hintButton").addEventListener("click", () => riddle && socket.emit("riddle:request-hint", { code: room.code, eventSequence: riddle.eventSequence }, ackHandler("arenaError")));
+  $("riddleForm").addEventListener("submit", (event) => { event.preventDefault(); if (!riddle) return; socket.emit("riddle:submit-answer", { code: room.code, answer: $("riddleAnswer").value, eventSequence: riddle.eventSequence }, ackHandler("arenaError", () => { $("riddleAnswer").value = ""; })); });
+  $("wordClueForm").addEventListener("submit", (event) => { event.preventDefault(); if (!wordState) return; socket.emit("word:submit-clue", { code: room.code, clue: $("wordClue").value, eventSequence: wordState.eventSequence }, ackHandler("arenaError", () => { $("wordClue").value = ""; })); });
+  document.querySelectorAll("[data-vote]").forEach((button) => button.addEventListener("click", () => socket.emit("word:submit-vote", { code: room.code, vote: button.dataset.vote, eventSequence: wordState.eventSequence }, ackHandler("arenaError"))));
+  $("wordGuessForm").addEventListener("submit", (event) => { event.preventDefault(); if (!wordState) return; socket.emit("word:submit-guess", { code: room.code, guess: $("wordGuess").value, eventSequence: wordState.eventSequence }, ackHandler("arenaError", () => { $("wordGuess").value = ""; })); });
+  $("showReference").addEventListener("change", () => $("puzzleReference").classList.toggle("hidden", !$("showReference").checked));
+  $("audioButton").addEventListener("click", () => localStream ? stopAudio() : startAudio());
+  $("muteButton").addEventListener("click", toggleMute);
+  $("leaveRoomButton").addEventListener("click", leaveRoom);
 
-$("entryForm").addEventListener("submit", (event) => { event.preventDefault(); const code = $("roomCode").value.trim().toUpperCase(); if (!code) return showError("Escribe un código o crea una sala nueva.", "entryError"); socket.emit("room:join", { code, displayName: $("displayName").value }, ackHandler("entryError", enterArena)); });
-$("createButton").addEventListener("click", () => socket.emit("room:create", { displayName: $("displayName").value }, ackHandler("entryError", enterArena)));
-$("startButton").addEventListener("click", () => socket.emit("game:start", { code: room.code }, ackHandler("arenaError", () => {})));
-$("copyButton").addEventListener("click", async () => { const serverQuery = isLocal ? "" : `?server=${encodeURIComponent(SERVER_URL)}`; await navigator.clipboard.writeText(`${location.origin}${location.pathname}${serverQuery}#room=${room.code}`); $("copyButton").textContent = "Copiado"; setTimeout(() => $("copyButton").textContent = "Copiar", 1300); });
-$("wordForm").addEventListener("submit", (event) => { event.preventDefault(); submitAnswer($("wordAnswer").value); });
-
-function submitAnswer(answer) { if (!room?.game) return; socket.emit("game:submit-answer", { code: room.code, answer, eventSequence: room.game.eventSequence }, ackHandler("arenaError", disableAnswers)); }
-function renderRoom() {
-  if (!room) return; $("roomLabel").textContent = room.code; $("playerCount").textContent = `${room.players.length} / ${room.maxPlayers}`;
-  $("roster").innerHTML = room.players.map((p) => `<div class="player"><span class="avatar">${escapeHtml(p.displayName[0].toUpperCase())}</span><span class="player-name">${escapeHtml(p.displayName)}${p.id === playerId ? " (tú)" : ""}<small class="player-state">${p.connected ? "En línea" : "Reconectando"}</small></span><strong class="score">${p.score}</strong></div>`).join("");
-  $("startButton").classList.toggle("hidden", room.status !== "lobby");
-  if (room.game) { $("phaseLabel").textContent = room.game.phase === "steal" ? "ROBO DE TURNO" : room.game.phase.toUpperCase(); renderTurn(); startClock(); }
+  function submitAnswer(answer) { if (!room?.game) return; socket.emit("game:submit-answer", { code: room.code, answer, eventSequence: room.game.eventSequence }, ackHandler("arenaError", disableAnswers)); }
+  function renderRoom() {
+    if (!room) return;
+    $("roomLabel").textContent = room.code; $("playerCount").textContent = `${room.players.length} / ${room.maxPlayers}`;
+    $("roster").innerHTML = room.players.map((p) => `<div class="player"><span class="avatar">${escapeHtml(p.displayName[0].toUpperCase())}</span><span class="player-name">${escapeHtml(p.displayName)}${p.id === playerId ? " (tú)" : ""}<small class="player-state">${p.connected ? (p.audioEnabled ? (p.audioMuted ? "Audio silenciado" : "Hablando disponible") : "En línea") : "Reconectando"}</small></span><strong class="score">${p.score}</strong></div>`).join("");
+    const inLobby = room.status === "lobby", connected = room.players.filter((p) => p.connected), ready = room.readyPlayerIds?.includes(playerId);
+    $("gameSelector").classList.toggle("hidden", !inLobby); $("questionCard").classList.toggle("hidden", !room.game); $("riddleCard").classList.toggle("hidden", !room.riddleGame); $("wordGameCard").classList.toggle("hidden", !room.wordGame); $("puzzleCard").classList.toggle("hidden", !room.puzzleGame); $("returnLobbyButton").classList.toggle("hidden", inLobby);
+    document.querySelectorAll("[data-game]").forEach((card) => card.classList.toggle("selected", card.dataset.game === room.selectedGameId));
+    $("readyButton").classList.toggle("hidden", !inLobby || !room.selectedGameId); $("readyButton").textContent = ready ? "Ya estás listo" : "Estoy listo";
+    const allReady = connected.length >= 2 && connected.every((p) => room.readyPlayerIds?.includes(p.id)); $("startButton").classList.toggle("hidden", !inLobby || !allReady);
+    const selectedName = room.selectedGameId === "riddles" ? "Acertijos compartidos" : room.selectedGameId === "word-infiltrator" ? "Palabra infiltrada" : room.selectedGameId === "shared-puzzle" ? "Rompecabezas compartido" : "Duelo de Saberes";
+    $("selectionStatus").textContent = room.selectedGameId ? `${selectedName} · ${room.readyPlayerIds.length}/${connected.length} listos` : "Selecciona un juego para proponerlo a la sala.";
+    if (inLobby) { $("phaseLabel").textContent = "SALA DE JUEGOS"; $("categoryLabel").textContent = "Elijan la próxima partida"; $("timerValue").textContent = "--"; }
+    if (room.game) { $("phaseLabel").textContent = room.game.phase === "steal" ? "ROBO DE TURNO" : room.game.phase.toUpperCase(); renderTurn(); startClock(); }
+    if (room.riddleGame) { riddle = room.riddleGame; renderRiddle(); }
+    if (room.wordGame) { wordState = room.wordGame; renderWordGame(); }
+    if (room.puzzleGame) { puzzleState = room.puzzleGame; renderPuzzle(); }
+  }
+  function renderQuestion() { if (!question) return; $("questionCard").classList.remove("hidden"); $("categoryLabel").textContent = question.category; $("questionText").textContent = question.prompt; $("reveal").classList.add("hidden"); $("answers").innerHTML = ""; $("wordForm").classList.toggle("hidden", question.type !== "word"); if (question.type === "mcq") question.options.forEach((option, index) => { const button = document.createElement("button"); button.className = "answer"; button.textContent = option; button.addEventListener("click", () => submitAnswer(index)); $("answers").append(button); }); renderTurn(); }
+  function renderTurn() { if (!room?.game) return; const active = room.players.find((p) => p.id === room.game.activePlayerId), mine = active?.id === playerId; $("statusText").textContent = mine ? "Tu turno. Elige con cuidado." : active ? `Turno de ${active.displayName}` : "Preparando la siguiente jugada..."; document.querySelectorAll(".answer, #wordAnswer, #wordForm button").forEach((el) => el.disabled = !mine); }
+  function renderRiddle() { if (!riddle) return; $("gameSelector").classList.add("hidden"); $("riddleCard").classList.remove("hidden"); $("phaseLabel").textContent = riddle.phase === "revealing" ? "SOLUCIÓN" : riddle.phase === "finished" ? "ACERTIJOS COMPLETADOS" : `RONDA ${riddle.roundIndex + 1} DE ${riddle.totalRounds}`; $("categoryLabel").textContent = `Puntuación del equipo: ${riddle.score}`; $("riddleText").textContent = riddle.prompt; $("riddleHints").innerHTML = riddle.hints.map((hint) => `<li>${escapeHtml(hint)}</li>`).join(""); $("riddleAttempts").innerHTML = riddle.attempts.map((attempt) => `<div class="attempt ${attempt.correct ? "" : "wrong"}">${escapeHtml(room.players.find((p) => p.id === attempt.playerId)?.displayName || "Jugador")}: ${escapeHtml(attempt.answer)}</div>`).join(""); const solving = riddle.phase === "solving"; $("riddleForm").classList.toggle("hidden", !solving); $("hintButton").disabled = !solving || riddle.hints.length >= 2; $("riddleReveal").classList.toggle("hidden", solving); $("riddleReveal").innerHTML = riddle.solution ? `<strong>${escapeHtml(riddle.solution)}</strong><br>${escapeHtml(riddle.explanation || "")}` : riddle.phase === "finished" ? `<strong>¡Misión cumplida!</strong> Puntuación final: ${riddle.score}` : ""; startClock(); }
+  function renderWordGame() {
+    if (!wordState || !room) return;
+    $("gameSelector").classList.add("hidden"); $("questionCard").classList.add("hidden"); $("riddleCard").classList.add("hidden"); $("wordGameCard").classList.remove("hidden");
+    $("phaseLabel").textContent = wordState.phase === "clue_round" ? "RONDA DE PISTAS" : wordState.phase === "voting" ? "DECISIÓN SECRETA" : wordState.phase === "guessing" ? "ADIVINA LA PALABRA" : "REVELACIÓN";
+    $("categoryLabel").textContent = "Palabra infiltrada"; $("privateWord").textContent = wordPrivate?.word || "••••••"; $("wordMeta").textContent = wordPrivate ? `${wordPrivate.category} · ${wordPrivate.difficulty}` : "Asignación privada";
+    $("wordClues").innerHTML = wordState.clues.map((item) => `<div class="clue-entry"><strong>${escapeHtml(room.players.find((p) => p.id === item.playerId)?.displayName || "Jugador")}</strong>: ${escapeHtml(item.clue)}</div>`).join("");
+    const myTurn = wordState.activePlayerId === playerId, voted = wordState.submittedVotePlayerIds.includes(playerId), guessed = wordState.submittedGuessPlayerIds.includes(playerId);
+    $("wordClueForm").classList.toggle("hidden", wordState.phase !== "clue_round" || !myTurn); $("wordVoteControls").classList.toggle("hidden", wordState.phase !== "voting" || voted); $("wordGuessForm").classList.toggle("hidden", wordState.phase !== "guessing" || guessed);
+    $("wordPhaseText").textContent = wordState.phase === "clue_round" ? (myTurn ? "Tu turno: da una pista sin decir tu palabra." : "Escucha la pista de la otra persona.") : wordState.phase === "voting" ? (voted ? "Voto enviado. Esperando a la otra persona." : "¿Crees que recibieron la misma palabra?") : wordState.phase === "guessing" ? (guessed ? "Adivinanza enviada. Esperando." : "Intenta adivinar la palabra de la otra persona.") : "Las palabras han sido reveladas.";
+    const reveals = wordState.revealedWords ? Object.entries(wordState.revealedWords).map(([id, word]) => `${escapeHtml(room.players.find((p) => p.id === id)?.displayName || "Jugador")}: <strong>${escapeHtml(word)}</strong> · ${wordState.scores[id] || 0} puntos`).join("<br>") : "";
+    $("wordReveal").classList.toggle("hidden", !wordState.revealedWords); $("wordReveal").innerHTML = wordState.revealedWords ? `${wordState.relationType === "same" ? "Tenían la misma palabra." : "Tenían palabras diferentes."}<br>${reveals}` : "";
+  }
+  function renderPuzzle() {
+    if (!puzzleState || !room) return;
+    $("gameSelector").classList.add("hidden"); $("questionCard").classList.add("hidden"); $("riddleCard").classList.add("hidden"); $("wordGameCard").classList.add("hidden"); $("puzzleCard").classList.remove("hidden");
+    $("phaseLabel").textContent = puzzleState.phase === "finished" ? "ROMPECABEZAS COMPLETADO" : "CONSTRUCCIÓN COMPARTIDA"; $("categoryLabel").textContent = "Rompecabezas compartido"; $("puzzleProgress").textContent = `${puzzleState.completedPieceIds.length} / ${Object.keys(puzzleState.pieces).length}`; $("puzzleStatus").textContent = puzzleState.phase === "finished" ? "¡Imagen completada entre todos!" : "Arrastren las piezas hasta su lugar.";
+    const imageUrl = `./assets/puzzle-${puzzleState.imageId}.svg`; $("puzzleReference").src = imageUrl;
+    const workspace = $("puzzleWorkspace"), board = $("puzzleBoard"), workspaceRect = workspace.getBoundingClientRect(), boardRect = board.getBoundingClientRect(), boardLeft = boardRect.left - workspaceRect.left, boardTop = boardRect.top - workspaceRect.top, pieceSize = boardRect.width / puzzleState.columns;
+    for (const piece of Object.values(puzzleState.pieces)) {
+      let element = document.getElementById(`puzzle-${piece.id}`);
+      if (!element) { element = document.createElement("div"); element.id = `puzzle-${piece.id}`; element.className = "puzzle-piece"; element.dataset.pieceId = piece.id; element.addEventListener("pointerdown", beginPuzzleDrag); element.addEventListener("pointermove", movePuzzleDrag); element.addEventListener("pointerup", endPuzzleDrag); element.addEventListener("pointercancel", endPuzzleDrag); workspace.append(element); }
+      const col = piece.correctSlot % puzzleState.columns, row = Math.floor(piece.correctSlot / puzzleState.columns); element.style.width = `${pieceSize}px`; element.style.height = `${pieceSize}px`; element.style.backgroundImage = `url(${imageUrl})`; element.style.backgroundSize = `${puzzleState.columns * 100}% ${puzzleState.rows * 100}%`; element.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
+      const displaySize = piece.isPlaced ? pieceSize : Math.min(pieceSize, workspaceRect.width < 500 ? 74 : 110); element.style.width = `${displaySize}px`; element.style.height = `${displaySize}px`; const left = piece.isPlaced ? boardLeft + col * pieceSize : piece.currentX * Math.max(1, workspaceRect.width - displaySize); const top = piece.isPlaced ? boardTop + row * pieceSize : piece.currentY * Math.max(1, workspaceRect.height - displaySize); element.style.left = `${left}px`; element.style.top = `${top}px`; element.classList.toggle("placed", piece.isPlaced); element.classList.toggle("controlled", piece.controlledByPlayerId === playerId); element.classList.toggle("locked-other", !!piece.controlledByPlayerId && piece.controlledByPlayerId !== playerId);
+    }
+  }
+  function beginPuzzleDrag(event) { const pieceId = event.currentTarget.dataset.pieceId, piece = puzzleState?.pieces[pieceId]; if (!piece || piece.isPlaced || piece.controlledByPlayerId && piece.controlledByPlayerId !== playerId) return; socket.emit("puzzle:request-lock", { code: room.code, pieceId }, ackHandler("arenaError", ({ granted }) => { if (!granted) return; activeDrag = { pieceId, pointerId: event.pointerId }; event.currentTarget.setPointerCapture?.(event.pointerId); })); }
+  function movePuzzleDrag(event) { if (!activeDrag || activeDrag.pointerId !== event.pointerId || activeDrag.pieceId !== event.currentTarget.dataset.pieceId || Date.now() - lastPuzzleMove < 45) return; lastPuzzleMove = Date.now(); const rect = $("puzzleWorkspace").getBoundingClientRect(); const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)), y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)); socket.emit("puzzle:move-piece", { code: room.code, pieceId: activeDrag.pieceId, x, y }); }
+  function endPuzzleDrag(event) { if (!activeDrag || activeDrag.pointerId !== event.pointerId) return; const boardRect = $("puzzleBoard").getBoundingClientRect(); let targetSlot = null; if (event.clientX >= boardRect.left && event.clientX <= boardRect.right && event.clientY >= boardRect.top && event.clientY <= boardRect.bottom) { const col = Math.min(puzzleState.columns - 1, Math.floor((event.clientX - boardRect.left) / (boardRect.width / puzzleState.columns))), row = Math.min(puzzleState.rows - 1, Math.floor((event.clientY - boardRect.top) / (boardRect.height / puzzleState.rows))); targetSlot = row * puzzleState.columns + col; } socket.emit("puzzle:release-piece", { code: room.code, pieceId: activeDrag.pieceId, targetSlot }, ackHandler("arenaError")); activeDrag = null; }
+  window.addEventListener("resize", () => puzzleState && renderPuzzle());
+  function startClock() { clearInterval(clock); const tick = () => { const deadline = room?.game?.deadlineAt || riddle?.deadlineAt; const left = deadline ? Math.max(0, Date.parse(deadline) - Date.now()) : 0; $("timerValue").textContent = deadline ? Math.ceil(left / 1000) : "--"; }; tick(); clock = setInterval(tick, 250); }
+  function disableAnswers() { document.querySelectorAll(".answer, #wordAnswer, #wordForm button").forEach((el) => el.disabled = true); }
+  async function startAudio() {
+    if (!navigator.mediaDevices?.getUserMedia) return showError("Este navegador no permite usar el micrófono.");
+    try { localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false }); audioMuted = false; updateAudioUI(); socket.emit("audio:status", { code: room.code, enabled: true, muted: false }, ackHandler("arenaError", syncAudioPeers)); }
+    catch (error) { localStream = null; updateAudioUI(); showError(error.name === "NotAllowedError" ? "Permiso de micrófono rechazado. Puedes seguir jugando sin audio." : "No fue posible activar el micrófono."); }
+  }
+  function stopAudio(notify = true) { for (const peer of audioPeers.values()) peer.close(); audioPeers.clear(); document.querySelectorAll("#remoteAudio audio").forEach((audio) => audio.remove()); localStream?.getTracks().forEach((track) => track.stop()); localStream = null; audioMuted = false; updateAudioUI(); if (notify && room) socket.emit("audio:status", { code: room.code, enabled: false, muted: false }, ackHandler("arenaError")); }
+  function toggleMute() { if (!localStream) return; audioMuted = !audioMuted; localStream.getAudioTracks().forEach((track) => { track.enabled = !audioMuted; }); updateAudioUI(); socket.emit("audio:status", { code: room.code, enabled: true, muted: audioMuted }, ackHandler("arenaError")); }
+  function updateAudioUI() { $("audioStatus").textContent = localStream ? (audioMuted ? "Silenciado" : "Conectado") : "Desactivado"; $("audioButton").textContent = localStream ? "Desactivar audio" : "Activar audio"; $("muteButton").classList.toggle("hidden", !localStream); $("muteButton").textContent = audioMuted ? "Activar micrófono" : "Silenciar micrófono"; document.querySelector(".audio-controls").classList.toggle("active", !!localStream); }
+  function ensureAudioPeer(targetPlayerId) { if (audioPeers.has(targetPlayerId)) return audioPeers.get(targetPlayerId); const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); localStream?.getTracks().forEach((track) => peer.addTrack(track, localStream)); peer.onicecandidate = ({ candidate }) => { if (candidate && room) socket.emit("audio:signal", { code: room.code, targetPlayerId, kind: "ice", data: candidate }); }; peer.ontrack = ({ streams }) => { let audio = document.getElementById(`audio-${targetPlayerId}`); if (!audio) { audio = document.createElement("audio"); audio.id = `audio-${targetPlayerId}`; audio.autoplay = true; audio.playsInline = true; $("remoteAudio").append(audio); } audio.srcObject = streams[0]; audio.play().catch(() => {}); }; peer.onconnectionstatechange = () => { if (["failed", "closed"].includes(peer.connectionState)) { peer.close(); audioPeers.delete(targetPlayerId); document.getElementById(`audio-${targetPlayerId}`)?.remove(); } }; audioPeers.set(targetPlayerId, peer); return peer; }
+  async function syncAudioPeers() { if (!localStream || !room) return; const activeIds = new Set(room.players.filter((p) => p.audioEnabled && p.id !== playerId).map((p) => p.id)); for (const [id, peer] of audioPeers) if (!activeIds.has(id)) { peer.close(); audioPeers.delete(id); document.getElementById(`audio-${id}`)?.remove(); } for (const targetId of activeIds) if (!audioPeers.has(targetId) && playerId.localeCompare(targetId) < 0) { try { const peer = ensureAudioPeer(targetId); const offer = await peer.createOffer(); await peer.setLocalDescription(offer); socket.emit("audio:signal", { code: room.code, targetPlayerId: targetId, kind: "offer", data: peer.localDescription }); } catch (error) { showError(`No se pudo iniciar el audio: ${error.message}`); } } }
+  function leaveRoom() { if (!room) return; const code = room.code; stopAudio(false); socket.emit("room:leave", { code }, ackHandler("arenaError", () => { localStorage.removeItem("duelo:session"); saved = null; room = null; playerId = null; question = null; riddle = null; wordState = null; wordPrivate = null; puzzleState = null; $("arenaView").classList.add("hidden"); $("entryView").classList.remove("hidden"); history.replaceState(null, "", location.pathname + location.search); showError("", "entryError"); })); }
+  $("displayName").value = localStorage.getItem("duelo:lastName") || ""; const linkedRoom = new URLSearchParams(location.hash.slice(1)).get("room"); if (linkedRoom) $("roomCode").value = linkedRoom.toUpperCase();
 }
-function renderQuestion() {
-  if (!question) return; $("categoryLabel").textContent = question.category; $("questionText").textContent = question.prompt; $("reveal").classList.add("hidden");
-  $("answers").innerHTML = ""; $("wordForm").classList.toggle("hidden", question.type !== "word");
-  if (question.type === "mcq") question.options.forEach((option, index) => { const button = document.createElement("button"); button.className = "answer"; button.textContent = option; button.addEventListener("click", () => submitAnswer(index)); $("answers").append(button); });
-  renderTurn();
-}
-function renderTurn() { if (!room?.game) return; const active = room.players.find((p) => p.id === room.game.activePlayerId); const mine = active?.id === playerId; $("statusText").textContent = mine ? "Tu turno. Elige con cuidado." : active ? `Turno de ${active.displayName}` : "Preparando la siguiente jugada..."; document.querySelectorAll(".answer, #wordAnswer, #wordForm button").forEach((el) => el.disabled = !mine); }
-function startClock() { clearInterval(clock); const tick = () => { const left = room?.game?.deadlineAt ? Math.max(0, Date.parse(room.game.deadlineAt) - Date.now()) : 0; $("timerValue").textContent = room?.game?.deadlineAt ? Math.ceil(left / 1000) : "--"; }; tick(); clock = setInterval(tick, 250); }
-function disableAnswers() { document.querySelectorAll(".answer, #wordAnswer, #wordForm button").forEach((el) => el.disabled = true); }
-function escapeHtml(value) { const node = document.createElement("div"); node.textContent = String(value); return node.innerHTML; }
 
-$("displayName").value = localStorage.getItem("duelo:lastName") || "";
-const linkedRoom = new URLSearchParams(location.hash.slice(1)).get("room"); if (linkedRoom) $("roomCode").value = linkedRoom.toUpperCase();
-}
-
-boot().catch((error) => {
-  document.getElementById("connectionText").textContent = "Servidor no disponible";
-  document.getElementById("entryError").textContent = `${error.message}. Verifica la URL de Railway.`;
-});
+boot().catch((error) => { document.getElementById("connectionText").textContent = "Servidor no disponible"; document.getElementById("entryError").textContent = `${error.message}. Verifica la URL de Railway.`; });

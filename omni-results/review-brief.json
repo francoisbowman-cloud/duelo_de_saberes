@@ -1,0 +1,20 @@
+{
+  "site_name": "Duelo de Saberes",
+  "site_type": "Aplicación web multijugador",
+  "primary_goal": "Claridad y facilidad de uso sin alterar la identidad visual oscura existente.",
+  "audience": "Jugadores actuales y potenciales.",
+  "preserve": [
+    "content",
+    "brand",
+    "dark visual identity",
+    "existing violet and cyan accents",
+    "existing Inter body typography",
+    "functionality",
+    "routes"
+  ],
+  "autonomy_mode": "near-automatic",
+  "excluded_goals": [
+    "seo",
+    "advertising"
+  ]
+}

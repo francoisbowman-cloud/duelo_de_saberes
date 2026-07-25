@@ -1,0 +1,24 @@
+{
+  "change_set_id": "composition-c2ffef92f0246997",
+  "status": "applied",
+  "changes": [
+    {
+      "path": "index.html",
+      "action": "modify",
+      "original_sha256": "35b19397c86f7060d9b20299c834e7bc858a823259031ef2da107422fa43e088",
+      "new_sha256": "88d2e38861dda15f4f14ab9b3fd0edbc28f022e35c539750c0958ecfb697d687"
+    },
+    {
+      "path": "omni-foundations.css",
+      "action": "create",
+      "original_sha256": null,
+      "new_sha256": "ad9cbfc4f528a33310198ef28ca7dce533227c835471afcf5b018baf7ed68af3"
+    },
+    {
+      "path": "styles.css",
+      "action": "modify",
+      "original_sha256": "a808a6844eca12e26303fc9df7e69b91a8c70bd1583a389e0a40034645254955",
+      "new_sha256": "50c9190350df92fe536e77742290ee3ea5d69d26111a3d47806e3e209aab44d8"
+    }
+  ]
+}

@@ -1,0 +1,226 @@
+{
+  "schema_version": "1.0",
+  "status": "proposal",
+  "plan_id": "ovl-88540d4e9c751a03",
+  "profile": "adaptive",
+  "brief": {
+    "site_name": "Duelo de Saberes",
+    "site_type": "Aplicación web multijugador",
+    "primary_goal": "Claridad y facilidad de uso sin alterar la identidad visual oscura existente.",
+    "audience": "Jugadores actuales y potenciales.",
+    "preserve": [
+      "content",
+      "brand",
+      "dark visual identity",
+      "existing violet and cyan accents",
+      "existing Inter body typography",
+      "functionality",
+      "routes"
+    ],
+    "autonomy_mode": "near-automatic",
+    "excluded_goals": [
+      "seo",
+      "advertising"
+    ]
+  },
+  "intent": {
+    "hierarchy": "Preservar el carácter actual y clarificar niveles de lectura.",
+    "rhythm": "Ritmo equilibrado con separación inequívoca entre secciones.",
+    "density": "balanced",
+    "imagery": "Mantener recursos válidos y normalizar proporción, recorte y tratamiento.",
+    "primary_goal": "Claridad y facilidad de uso sin alterar la identidad visual oscura existente.",
+    "audience": "Jugadores actuales y potenciales."
+  },
+  "pages": [
+    {
+      "route": "/",
+      "source_file": "index.html",
+      "archetype": "dashboard",
+      "detected_regions": [
+        "header",
+        "main",
+        "sections",
+        "catalog",
+        "forms",
+        "imagery"
+      ],
+      "directives": [
+        "Aplicar tokens exclusivamente; eliminar decisiones visuales aisladas.",
+        "Mantener una jerarquía inequívoca entre título, contexto, contenido y acción.",
+        "Definir comportamiento explícito para móvil, tableta y escritorio.",
+        "Priorizar estado, tarea principal y acciones contextuales sobre decoración."
+      ],
+      "responsive_strategy": "mobile-first",
+      "acceptance_criteria": [
+        "No existe desplazamiento horizontal a 320px de ancho.",
+        "La acción principal se distingue sin depender únicamente del color.",
+        "Todos los valores visuales nuevos proceden del Design System aprobado.",
+        "Contenido, rutas y comportamiento permanecen funcionalmente equivalentes."
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "foundation.tokens",
+      "priority": 1,
+      "scope": "global",
+      "target_files": [
+        "layout-fixes.css",
+        "styles.css"
+      ],
+      "action": "Instalar los tokens aprobados como única fuente visual.",
+      "risk": "low",
+      "dependencies": [],
+      "acceptance": [
+        "No se introducen colores o espacios literales nuevos."
+      ]
+    },
+    {
+      "id": "foundation.primitives",
+      "priority": 2,
+      "scope": "global",
+      "target_files": [
+        "app.js"
+      ],
+      "action": "Crear Container, Stack, Cluster y Section sobre el grid aprobado.",
+      "risk": "medium",
+      "dependencies": [
+        "foundation.tokens"
+      ],
+      "acceptance": [
+        "Los primitives son responsive y no contienen contenido de negocio."
+      ]
+    },
+    {
+      "id": "foundation.components",
+      "priority": 3,
+      "scope": "global",
+      "target_files": [
+        "app.js"
+      ],
+      "action": "Normalizar componentes y todos sus estados interactivos.",
+      "risk": "medium",
+      "dependencies": [
+        "foundation.tokens",
+        "foundation.primitives"
+      ],
+      "acceptance": [
+        "Hover, focus-visible, disabled, loading y error están definidos."
+      ]
+    },
+    {
+      "id": "foundation.iconography",
+      "priority": 4,
+      "scope": "global",
+      "target_files": [
+        "app.js"
+      ],
+      "action": "Unificar familia, tamaño, trazo, alineación y etiquetas de iconos.",
+      "risk": "low",
+      "dependencies": [
+        "foundation.tokens"
+      ],
+      "acceptance": [
+        "Existe una sola familia principal de iconos."
+      ]
+    },
+    {
+      "id": "page.1.composition",
+      "priority": 11,
+      "scope": "/",
+      "target_files": [
+        "index.html"
+      ],
+      "action": "Recomponer la página como arquetipo dashboard.",
+      "risk": "medium",
+      "dependencies": [
+        "foundation.primitives",
+        "foundation.components"
+      ],
+      "acceptance": [
+        "No existe desplazamiento horizontal a 320px de ancho.",
+        "La acción principal se distingue sin depender únicamente del color.",
+        "Todos los valores visuales nuevos proceden del Design System aprobado.",
+        "Contenido, rutas y comportamiento permanecen funcionalmente equivalentes."
+      ]
+    }
+  ],
+  "apply_contract": {
+    "design_only": true,
+    "allowed_change_categories": [
+      "tokens",
+      "layout",
+      "typography",
+      "spacing",
+      "surfaces",
+      "iconography",
+      "components",
+      "responsive",
+      "image-presentation"
+    ],
+    "forbidden_change_categories": [
+      "business-logic",
+      "routes",
+      "data-contracts",
+      "authentication",
+      "payments",
+      "seo",
+      "advertising"
+    ],
+    "preserve": [
+      "content",
+      "brand",
+      "dark visual identity",
+      "existing violet and cyan accents",
+      "existing Inter body typography",
+      "functionality",
+      "routes"
+    ],
+    "allowed_source_files": [
+      "app.js",
+      "index.html",
+      "layout-fixes.css",
+      "styles.css"
+    ],
+    "rollback_required": true
+  },
+  "quality_gates": [
+    {
+      "gate": "design-token-coverage",
+      "target": ">= 90%"
+    },
+    {
+      "gate": "responsive-viewports",
+      "target": "320, 768, 1024, 1440px"
+    },
+    {
+      "gate": "visual-overflow",
+      "target": "0 unresolved"
+    },
+    {
+      "gate": "interaction-states",
+      "target": "100% required states"
+    },
+    {
+      "gate": "functional-regressions",
+      "target": "0"
+    },
+    {
+      "gate": "manual-visual-approval",
+      "target": "required"
+    }
+  ],
+  "approval": {
+    "required_before_apply": true,
+    "plan_approved": false,
+    "design_system_approved": false
+  },
+  "guarantees": {
+    "source_code_modified": false,
+    "design_scope_only": true,
+    "seo_included": false,
+    "advertising_included": false,
+    "external_ai_used": false,
+    "variable_cost_incurred": false
+  }
+}

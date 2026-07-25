@@ -13,14 +13,14 @@
 </head>
 <body>
   <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
-  <main class="omni-page shell">
-    <header class="omni-header topbar">
+  <main class="shell">
+    <header class="topbar">
       <a class="brand" href="./"><span class="brand-mark">D</span><span>Duelo de <strong>Saberes</strong></span></a>
       <div class="connection"><span id="connectionDot"></span><span id="connectionText">Conectando...</span></div>
       <label class="theme-picker">Tema <select id="themeSelect"><option value="midnight">Medianoche</option><option value="aurora">Aurora</option><option value="ember">Brasas</option><option value="ocean">Océano</option></select></label>
     </header>
 
-    <section id="entryView" class="omni-section entry-layout">
+    <section id="entryView" class="entry-layout">
       <div class="intro">
         <h1>Convierte lo que sabes en una <em>rivalidad memorable.</em></h1>
         <p>Entra en segundos. Compite en vivo. El servidor protege tu turno, tu tiempo y tu puntuación.</p>
@@ -37,7 +37,7 @@
       </form>
     </section>
 
-    <section id="arenaView" class="omni-section arena hidden">
+    <section id="arenaView" class="arena hidden">
       <aside class="side-panel">
         <div class="room-heading"><span>Sala</span><strong id="roomLabel">------</strong><button id="copyButton" title="Copiar enlace">Copiar</button></div>
         <div class="roster-title"><span>Competidores</span><span id="playerCount">0 / 4</span></div>
@@ -55,7 +55,7 @@
       </aside>
       <div class="stage">
         <div class="stage-top"><div><span id="phaseLabel">SALA DE ESPERA</span><h2 id="categoryLabel">La arena está lista</h2></div><div class="timer"><strong id="timerValue">--</strong><span>seg</span></div></div>
-        <section id="gameSelector" class="omni-section game-selector">
+        <section id="gameSelector" class="game-selector">
           <div class="selector-heading"><h2>¿Qué jugamos ahora?</h2><p>Elijan una experiencia y preparen la mesa.</p></div>
           <div class="game-grid">
             <button class="game-card" data-game="trivia"><span class="game-icon" aria-hidden="true">⚔</span><strong>Duelo de Saberes</strong><span>Trivia competitiva · 10–15 min</span><small>Turnos, robos y datos curiosos</small></button>
@@ -104,7 +104,7 @@
           <img id="puzzleReference" class="puzzle-reference hidden" alt="Imagen completa del rompecabezas">
         </article>
         <article id="storyCard" class="question-card hidden"><p id="storyStatus"></p><div id="storyEntries" class="story-entries"></div><form id="storyForm" class="word-form"><textarea id="storyText" maxlength="280" placeholder="Continúa la historia..."></textarea><button class="button primary">Añadir fragmento</button></form></article>
-        <article id="mazeCard" class="question-card maze-card hidden"><header class="omni-header maze-header"><div><span>EXPEDICIÓN NOCTURNA</span><h3>Laberinto</h3></div><button id="mazeRestartHint" type="button" aria-label="Indicador de objetivo">⌁</button></header><div class="maze-hud"><span><i class="hud-gem"></i> Encuentren la salida</span><span id="mazeLevel">✦ Nivel 1</span><strong id="mazeMoves">0 movimientos</strong></div><div class="maze-frame"><div id="mazeBoard" class="maze-board" aria-label="Laberinto compartido"></div></div><div class="maze-controls" aria-label="Controles del laberinto"><button data-move="up" aria-label="Mover arriba">↑</button><span><button data-move="left" aria-label="Mover a la izquierda">←</button><button data-move="down" aria-label="Mover abajo">↓</button><button data-move="right" aria-label="Mover a la derecha">→</button></span></div><p class="maze-help">Todos controlan el mismo orbe. Coordinen cada movimiento por audio.</p></article>
+        <article id="mazeCard" class="question-card maze-card hidden"><header class="maze-header"><div><span>EXPEDICIÓN NOCTURNA</span><h3>Laberinto</h3></div><button id="mazeRestartHint" type="button" aria-label="Indicador de objetivo">⌁</button></header><div class="maze-hud"><span><i class="hud-gem"></i> Encuentren la salida</span><span id="mazeLevel">✦ Nivel 1</span><strong id="mazeMoves">0 movimientos</strong></div><div class="maze-frame"><div id="mazeBoard" class="maze-board" aria-label="Laberinto compartido"></div></div><div class="maze-controls" aria-label="Controles del laberinto"><button data-move="up" aria-label="Mover arriba">↑</button><span><button data-move="left" aria-label="Mover a la izquierda">←</button><button data-move="down" aria-label="Mover abajo">↓</button><button data-move="right" aria-label="Mover a la derecha">→</button></span></div><p class="maze-help">Todos controlan el mismo orbe. Coordinen cada movimiento por audio.</p></article>
         <article id="detectiveCard" class="question-card detective-card hidden"><p id="detectiveLevel"></p><h3 id="detectiveTitle"></h3><p id="detectiveSynopsis"></p><div id="detectiveClues" class="detective-clues"></div><div id="detectiveActions" class="choice-controls"></div><details><summary>Bitácora del caso</summary><ol id="detectiveJournal"></ol></details></article>
         <button id="returnLobbyButton" class="button secondary hidden">Volver a los juegos</button>
         <p id="arenaError" class="error" role="alert"></p>
